@@ -81,3 +81,56 @@ class Generator:
         balanced_df[target_column] = y_resampled
 
         return balanced_df
+
+    @staticmethod
+    def downsampler(
+        dataframe: pd.DataFrame,
+        target_column: str,
+        random_state: int = 42
+    ) -> pd.DataFrame:
+        """
+        Downsample the majority class to match the minority class.
+
+        Parameters
+        ----------
+        dataframe : pandas.DataFrame
+            Input dataframe containing features and target.
+
+        target_column : str
+            Name of the target column.
+
+        random_state : int, default=42
+            Random seed for reproducibility.
+
+        Returns
+        -------
+        pandas.DataFrame
+            A balanced dataframe where all target classes have the
+            same number of samples as the minority class.
+
+        Raises
+        ------
+        ValueError
+            If the target column does not exist.
+        """
+        if target_column not in dataframe.columns:
+            raise ValueError(f"Target column '{target_column}' not found.")
+
+        # Find the size of the minority class
+        class_counts = dataframe[target_column].value_counts()
+        minority_count = class_counts.min()
+
+        # Downsample every class to the minority count
+        dfs = [
+            group.sample(n=minority_count, random_state=random_state)
+            for _, group in dataframe.groupby(target_column)
+        ]
+        balanced_df = pd.concat(dfs).reset_index(drop=True)
+
+        # Shuffle the final dataframe
+        balanced_df = balanced_df.sample(
+            frac=1,
+            random_state=random_state
+        ).reset_index(drop=True)
+
+        return balanced_df

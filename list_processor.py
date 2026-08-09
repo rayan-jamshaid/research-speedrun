@@ -37,7 +37,7 @@ Smoothers_list = ["winsorization"]
 # At this point, we do the train val test split
 
 # Generator to generate synthetic data, remove class imbalance
-Generators_list = ["SMOTE"]
+Generators_list = ["SMOTE", "downsampler"]
 
 # AI models to train and test on the data
 Models_list = ["Catboost", "XGBoost"]
