@@ -29,7 +29,7 @@ csv2_path = './data/mimic_iii_processed.csv'
 Outliers_list = ["iqr", "modified_z_score"]
 
 # Impute missing values
-Imputers_list = ["iterative"]
+Imputers_list = ["iterative", "knn"]
 
 # Smooth out extra outlier
 Smoothers_list = ["winsorization"]

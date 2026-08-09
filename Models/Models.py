@@ -201,6 +201,14 @@ class Models:
             Trained model.
         """
 
+        # Check if GPU is present for CatBoost
+        has_gpu = False
+        try:
+            from catboost.utils import get_gpu_device_count
+            has_gpu = get_gpu_device_count() > 0
+        except Exception:
+            pass
+
         default_params = {
 
             "iterations": 500,
@@ -212,6 +220,9 @@ class Models:
             "random_seed": 42
 
         }
+
+        if has_gpu:
+            default_params["task_type"] = "GPU"
 
         default_params.update(kwargs)
 
@@ -305,19 +316,45 @@ class Models:
             Trained model.
         """
 
+        # Check if GPU is present for XGBoost
+        has_gpu = False
+        try:
+            from catboost.utils import get_gpu_device_count
+            has_gpu = get_gpu_device_count() > 0
+        except Exception:
+            pass
+
         default_params = {
 
-            "iterations": 500,
+            "n_estimators": 500,
             "learning_rate": 0.05,
-            "depth": 6,
-            "loss_function": "Logloss",
+            "max_depth": 6,
+            "objective": "binary:logistic",
             "eval_metric": "auc",
-            "verbose": False,
-            "random_seed": 42
+            "random_state": 42
 
         }
 
-        default_params.update(kwargs)
+        if has_gpu:
+            default_params["device"] = "cuda"
+
+        # Map incompatible kwargs from list_processor.py to XGBoost parameters
+        mapped_kwargs = {}
+        for k, v in kwargs.items():
+            if k == "iterations":
+                mapped_kwargs["n_estimators"] = v
+            elif k == "depth":
+                mapped_kwargs["max_depth"] = v
+            elif k == "loss_function":
+                pass
+            elif k == "random_seed":
+                mapped_kwargs["random_state"] = v
+            elif k == "verbose":
+                pass
+            else:
+                mapped_kwargs[k] = v
+
+        default_params.update(mapped_kwargs)
 
         model = XGBClassifier(
             **default_params
