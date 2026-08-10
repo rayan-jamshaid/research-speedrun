@@ -300,18 +300,39 @@ class Writer:
                 row.append(value)
 
         # Write to CSV
-        with open(filepath, "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            # If file is empty, write header
-            if f.tell() == 0:
-                header = ["model_name"]
-                for dataset_name in datasets:
-                    for metric in metric_names:
-                        header.append(f"{dataset_name}_{metric}")
-                    for label in cm_labels:
-                        header.append(f"{dataset_name}_{label}")
-                writer.writerow(header)
-            writer.writerow(row)
+        write_header = not os.path.exists(filepath) or os.path.getsize(filepath) == 0
+        try:
+            with open(filepath, "a", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                # If file is empty, write header
+                if write_header:
+                    header = ["model_name"]
+                    for dataset_name in datasets:
+                        for metric in metric_names:
+                            header.append(f"{dataset_name}_{metric}")
+                        for label in cm_labels:
+                            header.append(f"{dataset_name}_{label}")
+                    writer.writerow(header)
+                writer.writerow(row)
+        except PermissionError:
+            import random
+            fallback_filepath = os.path.join(self.output_dir, f"results_fallback_{random.randint(1000, 9999)}.csv")
+            print(f"[WARNING] Permission denied when writing to {filepath}. The file may be open in another application (like Excel). Writing results to: {fallback_filepath}")
+            try:
+                with open(fallback_filepath, "w", newline="", encoding="utf-8") as f:
+                    writer = csv.writer(f)
+                    header = ["model_name"]
+                    for dataset_name in datasets:
+                        for metric in metric_names:
+                            header.append(f"{dataset_name}_{metric}")
+                        for label in cm_labels:
+                            header.append(f"{dataset_name}_{label}")
+                    writer.writerow(header)
+                    writer.writerow(row)
+                return fallback_filepath
+            except Exception as e:
+                print(f"[ERROR] Failed to write fallback CSV file: {e}")
+                return filepath
 
         return filepath
 

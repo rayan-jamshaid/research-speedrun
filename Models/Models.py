@@ -6,6 +6,8 @@ import numpy as np
 
 from catboost import CatBoostClassifier
 from xgboost import XGBClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 
 from sklearn.metrics import (
     accuracy_score,
@@ -113,6 +115,16 @@ class Models:
         plt.savefig(cm_path)
         plt.close()
 
+        # Extract raw confusion matrix values
+        cm = confusion_matrix(y, y_pred)
+        tn, fp, fn, tp = cm.ravel()
+        cm_values = {
+            "true_negative":  int(tn),
+            "false_positive": int(fp),
+            "false_negative": int(fn),
+            "true_positive":  int(tp),
+        }
+
         #######################################################################
         # ROC Curve
         #######################################################################
@@ -145,6 +157,8 @@ class Models:
             "predictions": y_pred,
 
             "probabilities": y_prob,
+
+            "confusion_matrix": cm_values,
 
             "images": {
 
@@ -390,6 +404,198 @@ class Models:
                 y_external,
                 "external",
                 "XGBoost"
+            )
+
+        result = {
+            "model": model,
+            "validation": validation_results,
+            "test": test_results,
+        }
+        if external_results is not None:
+            result["external"] = external_results
+
+        return result
+
+    def random_forest(
+        self,
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+        X_test,
+        y_test,
+        X_external=None,
+        y_external=None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Train and evaluate Random Forest.
+
+        Parameters
+        ----------
+        X_train, y_train
+            Training data.
+
+        X_val, y_val
+            Validation data.
+
+        X_test, y_test
+            Test data.
+
+        X_external, y_external
+            External dataset for evaluation (optional).
+
+        kwargs
+            Additional Random Forest parameters.
+
+        Returns
+        -------
+        dict
+            Validation metrics,
+            Test metrics,
+            External metrics (if provided),
+            Image paths,
+            Trained model.
+        """
+
+        default_params = {
+            "n_estimators": 100,
+            "max_depth": 6,
+            "random_state": 42,
+            "n_jobs": -1
+        }
+
+        default_params.update(kwargs)
+
+        model = RandomForestClassifier(
+            **default_params
+        )
+
+        model.fit(
+            X_train,
+            y_train
+        )
+
+        validation_results = self._evaluate(
+            model,
+            X_val,
+            y_val,
+            "validation",
+            "RandomForest"
+        )
+
+        test_results = self._evaluate(
+            model,
+            X_test,
+            y_test,
+            "test",
+            "RandomForest"
+        )
+
+        # Evaluate on external dataset if provided
+        external_results = None
+        if X_external is not None and y_external is not None:
+            external_results = self._evaluate(
+                model,
+                X_external,
+                y_external,
+                "external",
+                "RandomForest"
+            )
+
+        result = {
+            "model": model,
+            "validation": validation_results,
+            "test": test_results,
+        }
+        if external_results is not None:
+            result["external"] = external_results
+
+        return result
+
+    def decision_tree(
+        self,
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+        X_test,
+        y_test,
+        X_external=None,
+        y_external=None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Train and evaluate Decision Tree.
+
+        Parameters
+        ----------
+        X_train, y_train
+            Training data.
+
+        X_val, y_val
+            Validation data.
+
+        X_test, y_test
+            Test data.
+
+        X_external, y_external
+            External dataset for evaluation (optional).
+
+        kwargs
+            Additional Decision Tree parameters.
+
+        Returns
+        -------
+        dict
+            Validation metrics,
+            Test metrics,
+            External metrics (if provided),
+            Image paths,
+            Trained model.
+        """
+
+        default_params = {
+            "max_depth": 6,
+            "random_state": 42
+        }
+
+        default_params.update(kwargs)
+
+        model = DecisionTreeClassifier(
+            **default_params
+        )
+
+        model.fit(
+            X_train,
+            y_train
+        )
+
+        validation_results = self._evaluate(
+            model,
+            X_val,
+            y_val,
+            "validation",
+            "DecisionTree"
+        )
+
+        test_results = self._evaluate(
+            model,
+            X_test,
+            y_test,
+            "test",
+            "DecisionTree"
+        )
+
+        # Evaluate on external dataset if provided
+        external_results = None
+        if X_external is not None and y_external is not None:
+            external_results = self._evaluate(
+                model,
+                X_external,
+                y_external,
+                "external",
+                "DecisionTree"
             )
 
         result = {

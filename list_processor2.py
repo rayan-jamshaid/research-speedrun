@@ -25,14 +25,12 @@ from sklearn.preprocessing import LabelEncoder
 csv1_path = './data/mimic_iv_processed.csv'
 csv2_path = './data/mimic_iii_processed.csv'
 
-# remove the outliers
-Outliers_list = ["iqr", "modified_z_score"]
-
-# Impute missing values
-Imputers_list = ["iterative", "knn"]
 
 # Smooth out extra outlier
 Smoothers_list = ["winsorization"]
+
+# Impute missing values
+Imputers_list = ["iterative", "knn"]
 
 # At this point, we do the train val test split
 
@@ -111,8 +109,13 @@ columns_outlier = [
     "bmi"
 ]
 
-for outlier in Outliers_list:
-    df_outlier_removed[outlier] = getattr(Outlier, outlier)(df, columns_outlier)
+# Check if Outliers_list is defined and not empty, otherwise default to using raw data
+if 'Outliers_list' in globals() and Outliers_list:
+    for outlier in Outliers_list:
+        df_outlier_removed[outlier] = getattr(Outlier, outlier)(df, columns_outlier)
+else:
+    print("[OUTLIER] No outlier removal method specified. Using raw data.")
+    df_outlier_removed = {"raw": df}
 
 #########################################
 
@@ -123,56 +126,43 @@ for outlier in Outliers_list:
 
 
 
-########STEP 3: Impute#################################
+########STEP 3: Smoothening & Imputation (Smoothening -> Imputation) #################################
 
-df_imputed = {}
+df_smoothed = {}
 
 for outlier_method, df_out_rem in df_outlier_removed.items():
-    print(f"[IMPUTE] Starting imputation for outlier method: {outlier_method}")
+    print(f"[PROCESS] Starting processing for outlier method: {outlier_method}")
 
     # Save subject_id and mortality_flag
     subject_ids = df_out_rem["subject_id"].copy()
     mortality = df_out_rem["mortality_flag"].copy()
 
-    # Remove subject_id and mortality_flag before imputation
-    df_for_imputation = df_out_rem.drop(
+    # Remove subject_id and mortality_flag before processing
+    df_for_processing = df_out_rem.drop(
         columns=["subject_id", "mortality_flag"]
     )
 
-    for imputer in Imputers_list:
-        print(f"[IMPUTE] Running imputation: {imputer}")
-
-        # Run imputation
-        df_result = getattr(Imputation, imputer)(
-            df=df_for_imputation,
-            target_column="mortality_flag"
-        )
-
-        # Add subject_id and mortality_flag back
-        df_result.insert(0, "subject_id", subject_ids)
-        df_result.insert(3, "mortality_flag", mortality)
-
-        # Store generated dataframe
-        df_imputed[f"{outlier_method}_{imputer}"] = df_result
-        print(f"[IMPUTE] Completed imputation: {imputer}, rows: {len(df_result)}")
-
-
-#########################################
-
-
-
-
-
-########STEP 4: Smoothening################################
-
-df_smoothed = {}
-
-for imputer_method, df_imp in df_imputed.items():
-    print(f"[SMOOTH] Starting smoothing for: {imputer_method}")
     for smoother in Smoothers_list:
         print(f"[SMOOTH] Running smoother: {smoother}")
-        df_smoothed[f"{imputer_method}_{smoother}"] = getattr(Smoother, smoother)(df = df_imp)
-        print(f"[SMOOTH] Completed smoother: {smoother}, rows: {len(df_smoothed[f'{imputer_method}_{smoother}'])}")
+        # Run smoother on the feature-only DataFrame
+        df_smoothed_features = getattr(Smoother, smoother)(df=df_for_processing)
+
+        for imputer in Imputers_list:
+            print(f"[IMPUTE] Running imputation: {imputer} on smoothed data")
+            # Run imputation
+            df_result = getattr(Imputation, imputer)(
+                df=df_smoothed_features,
+                target_column="mortality_flag"
+            )
+
+            # Add subject_id and mortality_flag back
+            df_result.insert(0, "subject_id", subject_ids)
+            df_result.insert(3, "mortality_flag", mortality)
+
+            # Store generated dataframe in df_smoothed
+            method_key = f"{outlier_method}_{smoother}_{imputer}"
+            df_smoothed[method_key] = df_result
+            print(f"[PROCESS] Completed {method_key}, rows: {len(df_result)}")
 
 
 #########################################
@@ -299,6 +289,20 @@ for method, train_df in df_train.items():
                 X_test, y_test,
                 X_external, y_external
             )
+        elif model_name.lower() in ["randomforest", "random_forest"]:
+            results = models_instance.random_forest(
+                X_train, y_train,
+                X_val, y_val,
+                X_test, y_test,
+                X_external, y_external
+            )
+        elif model_name.lower() in ["decisiontree", "decision_tree"]:
+            results = models_instance.decision_tree(
+                X_train, y_train,
+                X_val, y_val,
+                X_test, y_test,
+                X_external, y_external
+            )
 
         print(f"[MODEL] Completed {model_name} for {method}")
 
@@ -367,6 +371,20 @@ for method, df in df_trained_generated.items():
             )
         elif model_name.lower() == "xgboost":
             results = models_instance.xgboost(
+                X_train, y_train,
+                X_val, y_val,
+                X_test, y_test,
+                X_external, y_external
+            )
+        elif model_name.lower() in ["randomforest", "random_forest"]:
+            results = models_instance.random_forest(
+                X_train, y_train,
+                X_val, y_val,
+                X_test, y_test,
+                X_external, y_external
+            )
+        elif model_name.lower() in ["decisiontree", "decision_tree"]:
+            results = models_instance.decision_tree(
                 X_train, y_train,
                 X_val, y_val,
                 X_test, y_test,

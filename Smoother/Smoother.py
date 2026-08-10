@@ -48,7 +48,9 @@ class Smoother:
             columns = new_df.select_dtypes(include="number").columns
 
         for col in columns:
-            new_df[col] = winsorize(new_df[col], limits=limits)
+            non_nan_series = new_df[col].dropna()
+            if len(non_nan_series) > 0:
+                new_df.loc[non_nan_series.index, col] = winsorize(non_nan_series, limits=limits)
 
         return new_df
 
