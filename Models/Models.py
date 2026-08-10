@@ -19,6 +19,8 @@ from sklearn.metrics import (
     ConfusionMatrixDisplay,
     RocCurveDisplay
 )
+from sklearn.linear_model import LogisticRegression
+from lightgbm import LGBMClassifier
 
 
 class Models:
@@ -608,6 +610,198 @@ class Models:
 
         return result
 
+    def logistic_regression(
+        self,
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+        X_test,
+        y_test,
+        X_external=None,
+        y_external=None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Train and evaluate Logistic Regression.
+
+        Parameters
+        ----------
+        X_train, y_train
+            Training data.
+
+        X_val, y_val
+            Validation data.
+
+        X_test, y_test
+            Test data.
+
+        X_external, y_external
+            External dataset for evaluation (optional).
+
+        kwargs
+            Additional Logistic Regression parameters.
+
+        Returns
+        -------
+        dict
+            Validation metrics,
+            Test metrics,
+            External metrics (if provided),
+            Image paths,
+            Trained model.
+        """
+
+        default_params = {
+            "max_iter": 1000,
+            "random_state": 42
+        }
+
+        default_params.update(kwargs)
+
+        model = LogisticRegression(
+            **default_params
+        )
+
+        model.fit(
+            X_train,
+            y_train
+        )
+
+        validation_results = self._evaluate(
+            model,
+            X_val,
+            y_val,
+            "validation",
+            "LogisticRegression"
+        )
+
+        test_results = self._evaluate(
+            model,
+            X_test,
+            y_test,
+            "test",
+            "LogisticRegression"
+        )
+
+        # Evaluate on external dataset if provided
+        external_results = None
+        if X_external is not None and y_external is not None:
+            external_results = self._evaluate(
+                model,
+                X_external,
+                y_external,
+                "external",
+                "LogisticRegression"
+            )
+
+        result = {
+            "model": model,
+            "validation": validation_results,
+            "test": test_results,
+        }
+
+        if external_results is not None:
+            result["external"] = external_results
+
+        return result
 
 
-    
+    def lightgbm(
+        self,
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+        X_test,
+        y_test,
+        X_external=None,
+        y_external=None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Train and evaluate LightGBM.
+
+        Parameters
+        ----------
+        X_train, y_train
+            Training data.
+
+        X_val, y_val
+            Validation data.
+
+        X_test, y_test
+            Test data.
+
+        X_external, y_external
+            External dataset for evaluation (optional).
+
+        kwargs
+            Additional LightGBM parameters.
+
+        Returns
+        -------
+        dict
+            Validation metrics,
+            Test metrics,
+            External metrics (if provided),
+            Image paths,
+            Trained model.
+        """
+
+        default_params = {
+            "n_estimators": 100,
+            "learning_rate": 0.05,
+            "max_depth": 6,
+            "random_state": 42,
+            "verbosity": -1
+        }
+
+        default_params.update(kwargs)
+
+        model = LGBMClassifier(
+            **default_params
+        )
+
+        model.fit(
+            X_train,
+            y_train
+        )
+
+        validation_results = self._evaluate(
+            model,
+            X_val,
+            y_val,
+            "validation",
+            "LightGBM"
+        )
+
+        test_results = self._evaluate(
+            model,
+            X_test,
+            y_test,
+            "test",
+            "LightGBM"
+        )
+
+        # Evaluate on external dataset if provided
+        external_results = None
+        if X_external is not None and y_external is not None:
+            external_results = self._evaluate(
+                model,
+                X_external,
+                y_external,
+                "external",
+                "LightGBM"
+            )
+
+        result = {
+            "model": model,
+            "validation": validation_results,
+            "test": test_results,
+        }
+
+        if external_results is not None:
+            result["external"] = external_results
+
+        return result
