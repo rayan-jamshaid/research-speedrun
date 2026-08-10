@@ -4,7 +4,6 @@ from sdv.metadata import Metadata
 from sdv.single_table import CTGANSynthesizer
 from sdv.sampling import Condition
 from sdv.single_table import CopulaGANSynthesizer
-from sdv.single_table import CTABGANSynthesizer
 from sdv.single_table import TVAESynthesizer
 
 
