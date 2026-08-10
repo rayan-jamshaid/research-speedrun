@@ -314,52 +314,6 @@ class Generator:
 
 
 
-    @staticmethod
-    def CTABGAN(
-        dataframe: pd.DataFrame,
-        target_column: str,
-        epochs: int = 300,
-        random_state: int = 42
-    ) -> pd.DataFrame:
-
-        df = dataframe.copy()
-
-        metadata = Metadata.detect_from_dataframe(
-            data=df
-        )
-
-        synthesizer = CTABGANSynthesizer(
-            metadata,
-            epochs=epochs,
-            verbose=True
-        )
-
-        synthesizer.fit(df)
-
-        minority_class = df[target_column].value_counts().idxmin()
-        majority_count = df[target_column].value_counts().max()
-        minority_count = df[target_column].value_counts().min()
-
-        samples_needed = majority_count - minority_count
-
-        if samples_needed <= 0:
-            return df
-
-        condition = Condition(
-            num_rows=samples_needed,
-            column_values={
-                target_column: minority_class
-            }
-        )
-
-        synthetic_data = synthesizer.sample_from_conditions(
-            conditions=[condition]
-        )
-
-        return pd.concat(
-            [df, synthetic_data],
-            ignore_index=True
-        )
 
     
     @staticmethod
