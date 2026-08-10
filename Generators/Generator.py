@@ -7,6 +7,18 @@ from sdv.single_table import CopulaGANSynthesizer
 from sdv.single_table import TVAESynthesizer
 
 
+def _has_cuda() -> bool:
+    """
+    Return True if a CUDA-capable GPU is available via PyTorch.
+    Falls back to False if PyTorch is not installed or no GPU is found.
+    """
+    try:
+        import torch
+        return torch.cuda.is_available()
+    except ImportError:
+        return False
+
+
 class Generator:
     """
     A utility class for generating balanced datasets using oversampling techniques.
@@ -146,7 +158,8 @@ class Generator:
         dataframe: pd.DataFrame,
         target_column: str,
         epochs: int = 300,
-        random_state: int = 42
+        random_state: int = 42,
+        cuda: bool | None = None
     ) -> pd.DataFrame:
         """
         Apply CTGAN to balance the target classes by generating
@@ -207,11 +220,15 @@ class Generator:
             sdtype="categorical"
         )
 
+        # Resolve GPU flag: auto-detect when not explicitly set
+        use_cuda = _has_cuda() if cuda is None else cuda
+
         # Create and train CTGAN
         synthesizer = CTGANSynthesizer(
             metadata,
             epochs=epochs,
-            verbose=True
+            verbose=True,
+            cuda=use_cuda
         )
 
         synthesizer.fit(df)
@@ -269,7 +286,8 @@ class Generator:
         dataframe: pd.DataFrame,
         target_column: str,
         epochs: int = 300,
-        random_state: int = 42
+        random_state: int = 42,
+        cuda: bool | None = None
     ) -> pd.DataFrame:
 
         df = dataframe.copy()
@@ -278,10 +296,14 @@ class Generator:
             data=df
         )
 
+        # Resolve GPU flag: auto-detect when not explicitly set
+        use_cuda = _has_cuda() if cuda is None else cuda
+
         synthesizer = CopulaGANSynthesizer(
             metadata,
             epochs=epochs,
-            verbose=True
+            verbose=True,
+            cuda=use_cuda
         )
 
         synthesizer.fit(df)
@@ -320,7 +342,8 @@ class Generator:
         dataframe: pd.DataFrame,
         target_column: str,
         epochs: int = 300,
-        random_state: int = 42
+        random_state: int = 42,
+        cuda: bool | None = None
     ) -> pd.DataFrame:
 
         df = dataframe.copy()
@@ -329,10 +352,14 @@ class Generator:
             data=df
         )
 
+        # Resolve GPU flag: auto-detect when not explicitly set
+        use_cuda = _has_cuda() if cuda is None else cuda
+
         synthesizer = TVAESynthesizer(
             metadata,
             epochs=epochs,
-            verbose=True
+            verbose=True,
+            cuda=use_cuda
         )
 
         synthesizer.fit(df)

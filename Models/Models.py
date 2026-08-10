@@ -4,6 +4,24 @@ from typing import Dict, Any
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+def _has_gpu() -> bool:
+    """
+    Return True if a CUDA-capable GPU is available.
+    Uses PyTorch for detection; falls back to False if unavailable.
+    """
+    try:
+        import torch
+        return torch.cuda.is_available()
+    except ImportError:
+        pass
+    # Secondary fallback: CatBoost GPU counter
+    try:
+        from catboost.utils import get_gpu_device_count
+        return get_gpu_device_count() > 0
+    except Exception:
+        return False
+
 from catboost import CatBoostClassifier
 from xgboost import XGBClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -218,12 +236,7 @@ class Models:
         """
 
         # Check if GPU is present for CatBoost
-        has_gpu = False
-        try:
-            from catboost.utils import get_gpu_device_count
-            has_gpu = get_gpu_device_count() > 0
-        except Exception:
-            pass
+        has_gpu = _has_gpu()
 
         default_params = {
 
@@ -333,12 +346,7 @@ class Models:
         """
 
         # Check if GPU is present for XGBoost
-        has_gpu = False
-        try:
-            from catboost.utils import get_gpu_device_count
-            has_gpu = get_gpu_device_count() > 0
-        except Exception:
-            pass
+        has_gpu = _has_gpu()
 
         default_params = {
 
@@ -756,6 +764,10 @@ class Models:
             "random_state": 42,
             "verbosity": -1
         }
+
+        # Enable GPU acceleration when a CUDA device is available
+        if _has_gpu():
+            default_params["device"] = "gpu"
 
         default_params.update(kwargs)
 
