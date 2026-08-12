@@ -29,4 +29,4 @@ then do the train val test split, and do this by the subject_id in the dataframe
 
 
 
-apply the GPU support for all things possible...
+Do PCA for the features. check it. and then do PCA. what does that give you?

@@ -2,9 +2,9 @@ import os
 from datetime import datetime
 
 
-class Writer:
+class WriterRegression:
     """
-    Utility class for writing model evaluation results to Markdown.
+    Utility class for writing regression model evaluation results to Markdown, HTML, and CSV.
     """
 
     def __init__(self, output_dir="../results"):
@@ -19,12 +19,12 @@ class Writer:
 
     def write_to_md(self, results: dict, filename: str):
         """
-        Write model evaluation results to a Markdown (.md) file.
+        Write regression model evaluation results to a Markdown (.md) file.
 
         Parameters
         ----------
         results : dict
-            Dictionary returned by the Models class.
+            Dictionary returned by the ModelsRegression class.
 
         filename : str
             Name of the markdown file (without .md extension).
@@ -39,7 +39,7 @@ class Writer:
 
         with open(filepath, "w", encoding="utf-8") as f:
 
-            f.write(f"# Model Evaluation Report\n\n")
+            f.write(f"# Regression Model Evaluation Report\n\n")
             f.write(f"Generated: {datetime.now()}\n\n")
 
             ###############################################################
@@ -125,12 +125,12 @@ class Writer:
 
     def write_to_html(self, results: dict, filename: str):
         """
-        Write model evaluation results to an HTML (.html) file.
+        Write regression model evaluation results to an HTML (.html) file.
 
         Parameters
         ----------
         results : dict
-            Dictionary returned by the Models class.
+            Dictionary returned by the ModelsRegression class.
 
         filename : str
             Name of the HTML file (without .html extension).
@@ -148,7 +148,7 @@ class Writer:
             f.write("<html>\n")
             f.write("<head>\n")
             f.write('<meta charset="utf-8">\n')
-            f.write(f"<title>Model Evaluation Report</title>\n")
+            f.write(f"<title>Regression Model Evaluation Report</title>\n")
             f.write("<style>\n")
             f.write("body { font-family: Arial, sans-serif; margin: 20px; }\n")
             f.write("h1, h2, h3 { color: #333; }\n")
@@ -161,7 +161,7 @@ class Writer:
             f.write("</head>\n")
             f.write("<body>\n")
 
-            f.write("<h1>Model Evaluation Report</h1>\n")
+            f.write("<h1>Regression Model Evaluation Report</h1>\n")
             f.write(f"<p>Generated: {datetime.now()}</p>\n")
             f.write("<hr>\n")
 
@@ -256,14 +256,14 @@ class Writer:
 
     def write_to_csv(self, results: dict, filename: str):
         """
-        Write model evaluation results to a single CSV file (results.csv).
+        Write regression model evaluation results to a single CSV file (results.csv).
 
         Each row = one model, with columns for all metrics.
 
         Parameters
         ----------
         results : dict
-            Dictionary returned by the Models class.
+            Dictionary returned by the ModelsRegression class.
 
         filename : str
             Name/identifier for the model (used as first column).
@@ -277,9 +277,8 @@ class Writer:
 
         filepath = os.path.join(self.output_dir, "results.csv")
 
-        # Define column order
-        cm_labels = ["true_positive", "true_negative", "false_positive", "false_negative"]
-        metric_names = ["accuracy", "precision", "recall", "f1", "f2_score", "specificity", "npv", "fpr", "fnr", "roc_auc", "pr_auc"]
+        # Define column order for regression metrics
+        metric_names = ["mse", "rmse", "mae", "medae", "mbe", "r2", "mape"]
         datasets = ["validation", "test"]
         if "external" in results:
             datasets.append("external")
@@ -293,11 +292,6 @@ class Writer:
             for metric in metric_names:
                 value = dataset_data["metrics"].get(metric, None)
                 row.append(value if value is not None else "")
-            # Add confusion matrix values
-            confusion_matrix = dataset_data.get("confusion_matrix", {})
-            for label in cm_labels:
-                value = confusion_matrix.get(label, 0)
-                row.append(value)
 
         # Write to CSV
         write_header = not os.path.exists(filepath) or os.path.getsize(filepath) == 0
@@ -310,8 +304,6 @@ class Writer:
                     for dataset_name in datasets:
                         for metric in metric_names:
                             header.append(f"{dataset_name}_{metric}")
-                        for label in cm_labels:
-                            header.append(f"{dataset_name}_{label}")
                     writer.writerow(header)
                 writer.writerow(row)
         except PermissionError:
@@ -325,8 +317,6 @@ class Writer:
                     for dataset_name in datasets:
                         for metric in metric_names:
                             header.append(f"{dataset_name}_{metric}")
-                        for label in cm_labels:
-                            header.append(f"{dataset_name}_{label}")
                     writer.writerow(header)
                     writer.writerow(row)
                 return fallback_filepath
@@ -335,6 +325,3 @@ class Writer:
                 return filepath
 
         return filepath
-
-    
-    

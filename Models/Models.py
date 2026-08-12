@@ -32,10 +32,13 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     f1_score,
+    fbeta_score,
     roc_auc_score,
     confusion_matrix,
     ConfusionMatrixDisplay,
-    RocCurveDisplay
+    RocCurveDisplay,
+    precision_recall_curve,
+    auc
 )
 from sklearn.linear_model import LogisticRegression
 from lightgbm import LGBMClassifier
@@ -95,6 +98,10 @@ class Models:
         # Metrics
         #######################################################################
 
+        # Extract raw confusion matrix values first
+        cm = confusion_matrix(y, y_pred)
+        tn, fp, fn, tp = cm.ravel()
+
         metrics = {
 
             "accuracy":
@@ -109,9 +116,37 @@ class Models:
             "f1":
                 f1_score(y, y_pred),
 
+            "f2_score":
+                fbeta_score(y, y_pred, beta=2),
+
             "roc_auc":
                 roc_auc_score(y, y_prob)
         }
+
+        # Specificity (TNR)
+        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+
+        # NPV (Negative Predictive Value)
+        npv = tn / (tn + fn) if (tn + fn) > 0 else 0
+
+        # FPR (False Positive Rate)
+        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
+
+        # FNR (False Negative Rate)
+        fnr = fn / (fn + tp) if (fn + tp) > 0 else 0
+
+        # PR-AUC
+        precision_vals, recall_vals, _ = precision_recall_curve(y, y_prob)
+        pr_auc = auc(recall_vals, precision_vals)
+
+        # Add calculated metrics to metrics dictionary
+        metrics.update({
+            "specificity": specificity,
+            "npv": npv,
+            "fpr": fpr,
+            "fnr": fnr,
+            "pr_auc": pr_auc
+        })
 
         #######################################################################
         # Confusion Matrix
@@ -135,9 +170,6 @@ class Models:
         plt.savefig(cm_path)
         plt.close()
 
-        # Extract raw confusion matrix values
-        cm = confusion_matrix(y, y_pred)
-        tn, fp, fn, tp = cm.ravel()
         cm_values = {
             "true_negative":  int(tn),
             "false_positive": int(fp),
@@ -167,6 +199,30 @@ class Models:
         plt.close()
 
         #######################################################################
+        # PR-AUC Curve
+        #######################################################################
+
+        pr_path = os.path.join(
+            save_dir,
+            f"{dataset_name}_pr_curve.png"
+        )
+
+        fig, ax = plt.subplots(figsize=(6, 6))
+
+        precision_vals, recall_vals, _ = precision_recall_curve(y, y_prob)
+
+        ax.plot(recall_vals, precision_vals, label=f'PR-AUC = {pr_auc:.3f}')
+        ax.set_xlabel('Recall')
+        ax.set_ylabel('Precision')
+        ax.set_title('Precision-Recall Curve')
+        ax.legend()
+        ax.grid(True)
+
+        plt.tight_layout()
+        plt.savefig(pr_path)
+        plt.close()
+
+        #######################################################################
         # Return
         #######################################################################
 
@@ -184,7 +240,9 @@ class Models:
 
                 "confusion_matrix": cm_path,
 
-                "roc_curve": roc_path
+                "roc_curve": roc_path,
+
+                "pr_curve": pr_path
             }
 
         }
