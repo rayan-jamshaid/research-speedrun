@@ -1,10 +1,49 @@
 import os
 from datetime import datetime
+from abc import ABC, abstractmethod
+
+
+class BaseWriterRegression(ABC):
+    """
+    Abstract base class for writing regression model evaluation results.
+    Follows SOLID principles by providing a common interface for all regression writers.
+    """
+
+    def __init__(self, output_dir="../results"):
+        """
+        Parameters
+        ----------
+        output_dir : str
+            Directory where output files will be saved.
+        """
+        self.output_dir = output_dir
+        os.makedirs(self.output_dir, exist_ok=True)
+
+    @abstractmethod
+    def write(self, results: dict, filename: str) -> str:
+        """
+        Write regression model evaluation results to a file.
+
+        Parameters
+        ----------
+        results : dict
+            Dictionary returned by the ModelsRegression class.
+
+        filename : str
+            Name of the file (without extension).
+
+        Returns
+        -------
+        str
+            Path to the generated file.
+        """
+        pass
 
 
 class WriterRegression:
     """
-    Utility class for writing regression model evaluation results to Markdown, HTML, and CSV.
+    Facade class that provides backward compatibility with the original interface.
+    Delegates to specific regression writer implementations.
     """
 
     def __init__(self, output_dir="../results"):
@@ -15,9 +54,76 @@ class WriterRegression:
             Directory where markdown files will be saved.
         """
         self.output_dir = output_dir
-        os.makedirs(self.output_dir, exist_ok=True)
+        self._markdown_writer = MarkdownWriterRegression(output_dir)
+        self._html_writer = HTMLWriterRegression(output_dir)
+        self._csv_writer = CSVWriterRegression(output_dir)
 
-    def write_to_md(self, results: dict, filename: str):
+    def write_to_md(self, results: dict, filename: str) -> str:
+        """
+        Write regression model evaluation results to a Markdown (.md) file.
+
+        Parameters
+        ----------
+        results : dict
+            Dictionary returned by the ModelsRegression class.
+
+        filename : str
+            Name of the markdown file (without .md extension).
+
+        Returns
+        -------
+        str
+            Path to the generated markdown file.
+        """
+        return self._markdown_writer.write(results, filename)
+
+    def write_to_html(self, results: dict, filename: str) -> str:
+        """
+        Write regression model evaluation results to an HTML (.html) file.
+
+        Parameters
+        ----------
+        results : dict
+            Dictionary returned by the ModelsRegression class.
+
+        filename : str
+            Name of the HTML file (without .html extension).
+
+        Returns
+        -------
+        str
+            Path to the generated HTML file.
+        """
+        return self._html_writer.write(results, filename)
+
+    def write_to_csv(self, results: dict, filename: str) -> str:
+        """
+        Write regression model evaluation results to a single CSV file (results.csv).
+
+        Each row = one model, with columns for all metrics.
+
+        Parameters
+        ----------
+        results : dict
+            Dictionary returned by the ModelsRegression class.
+
+        filename : str
+            Name/identifier for the model (used as first column).
+
+        Returns
+        -------
+        str
+            Path to the generated CSV file.
+        """
+        return self._csv_writer.write(results, filename)
+
+
+class MarkdownWriterRegression(BaseWriterRegression):
+    """
+    Writer for Markdown format output for regression models.
+    """
+
+    def write(self, results: dict, filename: str) -> str:
         """
         Write regression model evaluation results to a Markdown (.md) file.
 
@@ -123,7 +229,13 @@ class WriterRegression:
 
         return filepath
 
-    def write_to_html(self, results: dict, filename: str):
+
+class HTMLWriterRegression(BaseWriterRegression):
+    """
+    Writer for HTML format output for regression models.
+    """
+
+    def write(self, results: dict, filename: str) -> str:
         """
         Write regression model evaluation results to an HTML (.html) file.
 
@@ -254,7 +366,12 @@ class WriterRegression:
         return filepath
 
 
-    def write_to_csv(self, results: dict, filename: str):
+class CSVWriterRegression(BaseWriterRegression):
+    """
+    Writer for CSV format output for regression models.
+    """
+
+    def write(self, results: dict, filename: str) -> str:
         """
         Write regression model evaluation results to a single CSV file (results.csv).
 

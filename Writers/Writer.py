@@ -1,10 +1,49 @@
 import os
 from datetime import datetime
+from abc import ABC, abstractmethod
+
+
+class BaseWriter(ABC):
+    """
+    Abstract base class for writing model evaluation results.
+    Follows SOLID principles by providing a common interface for all writers.
+    """
+
+    def __init__(self, output_dir="../results"):
+        """
+        Parameters
+        ----------
+        output_dir : str
+            Directory where output files will be saved.
+        """
+        self.output_dir = output_dir
+        os.makedirs(self.output_dir, exist_ok=True)
+
+    @abstractmethod
+    def write(self, results: dict, filename: str) -> str:
+        """
+        Write model evaluation results to a file.
+
+        Parameters
+        ----------
+        results : dict
+            Dictionary returned by the Models class.
+
+        filename : str
+            Name of the file (without extension).
+
+        Returns
+        -------
+        str
+            Path to the generated file.
+        """
+        pass
 
 
 class Writer:
     """
-    Utility class for writing model evaluation results to Markdown.
+    Facade class that provides backward compatibility with the original interface.
+    Delegates to specific writer implementations.
     """
 
     def __init__(self, output_dir="../results"):
@@ -15,9 +54,76 @@ class Writer:
             Directory where markdown files will be saved.
         """
         self.output_dir = output_dir
-        os.makedirs(self.output_dir, exist_ok=True)
+        self._markdown_writer = MarkdownWriter(output_dir)
+        self._html_writer = HTMLWriter(output_dir)
+        self._csv_writer = CSVWriter(output_dir)
 
-    def write_to_md(self, results: dict, filename: str):
+    def write_to_md(self, results: dict, filename: str) -> str:
+        """
+        Write model evaluation results to a Markdown (.md) file.
+
+        Parameters
+        ----------
+        results : dict
+            Dictionary returned by the Models class.
+
+        filename : str
+            Name of the markdown file (without .md extension).
+
+        Returns
+        -------
+        str
+            Path to the generated markdown file.
+        """
+        return self._markdown_writer.write(results, filename)
+
+    def write_to_html(self, results: dict, filename: str) -> str:
+        """
+        Write model evaluation results to an HTML (.html) file.
+
+        Parameters
+        ----------
+        results : dict
+            Dictionary returned by the Models class.
+
+        filename : str
+            Name of the HTML file (without .html extension).
+
+        Returns
+        -------
+        str
+            Path to the generated HTML file.
+        """
+        return self._html_writer.write(results, filename)
+
+    def write_to_csv(self, results: dict, filename: str) -> str:
+        """
+        Write model evaluation results to a single CSV file (results.csv).
+
+        Each row = one model, with columns for all metrics.
+
+        Parameters
+        ----------
+        results : dict
+            Dictionary returned by the Models class.
+
+        filename : str
+            Name/identifier for the model (used as first column).
+
+        Returns
+        -------
+        str
+            Path to the generated CSV file.
+        """
+        return self._csv_writer.write(results, filename)
+
+
+class MarkdownWriter(BaseWriter):
+    """
+    Writer for Markdown format output.
+    """
+
+    def write(self, results: dict, filename: str) -> str:
         """
         Write model evaluation results to a Markdown (.md) file.
 
@@ -123,7 +229,13 @@ class Writer:
 
         return filepath
 
-    def write_to_html(self, results: dict, filename: str):
+
+class HTMLWriter(BaseWriter):
+    """
+    Writer for HTML format output.
+    """
+
+    def write(self, results: dict, filename: str) -> str:
         """
         Write model evaluation results to an HTML (.html) file.
 
@@ -254,7 +366,12 @@ class Writer:
         return filepath
 
 
-    def write_to_csv(self, results: dict, filename: str):
+class CSVWriter(BaseWriter):
+    """
+    Writer for CSV format output.
+    """
+
+    def write(self, results: dict, filename: str) -> str:
         """
         Write model evaluation results to a single CSV file (results.csv).
 
@@ -335,6 +452,3 @@ class Writer:
                 return filepath
 
         return filepath
-
-    
-    
