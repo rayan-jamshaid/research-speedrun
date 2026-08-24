@@ -8,5 +8,5 @@ catboost
 lightgbm
 datetime
 scikit-learn
-
+optuna
 sdv
