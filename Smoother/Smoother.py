@@ -55,5 +55,3 @@ class Smoother:
         return new_df
 
 
-
-    

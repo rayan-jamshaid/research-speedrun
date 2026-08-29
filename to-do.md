@@ -34,3 +34,9 @@ Do PCA for the features. check it. and then do PCA. what does that give you?
 
 Do check that the eval metrics are working
 and do the dimensionality checks. only vitals, only age sex things. and then apply the models. and then check how do these work??
+
+
+add the save_csv_file feature at points that are needed. 
+
+
+add the functionality that you can train and test everything on set-features only..
