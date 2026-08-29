@@ -55,7 +55,7 @@ Generators_list = ["SMOTE", "downsampler", "CTGAN", "CopulaGAN", "TVAE"]
 Generators_run = [True, True, True, True, True]
 
 # AI models to train and test on the data
-Models_list = ["Catboost", "XGBoost", "randomforest", "decisiontree", "logistic_regression", "lightgbm"]
+Models_list = ["Catboost", "XGBoost", "randomforest", "decisiontree", "logistic_regression", "lightgbm", "xgboost_random_search", "xgboost_optuna"]
 
 # Write methods
 # Writers_list = ["write_to_csv"]
