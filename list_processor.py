@@ -8,6 +8,8 @@ from Generators import Generator
 from Models import Models
 from Writers import Writer
 from Outlier import Outlier
+from DatasetSaver import DatasetSaver
+from features_slicer import FeatureSlicer
 
 
 
@@ -25,19 +27,31 @@ from sklearn.preprocessing import LabelEncoder
 csv1_path = './data/mimic_iv_processed.csv'
 csv2_path = './data/mimic_iii_processed.csv'
 
+# Add named experiments here. None keeps every feature from the raw CSV.
+FEATURE_PROJECTS = {
+    "all_features": None,
+    "test_project1": ["age", "sex", "rbc", "wbc", "hgb", "plt", "creatinine", "bun", "heart_rate", "respiratory_rate"],
+    "test_project2": ["albumin", "alt", "ast", "alp", "fibrinogen", "dbil", "temperature", "map", "weight", "height"],
+}
+ACTIVE_FEATURE_PROJECT = "all_features"
+
 # remove the outliers
 Outliers_list = ["iqr", "modified_z_score"]
+Outliers_run = [True, True]
 
 # Impute missing values
 Imputers_list = ["iterative", "knn"]
+Imputers_run = [True, True]
 
 # Smooth out extra outlier
 Smoothers_list = ["winsorization"]
+Smoothers_run = [True]
 
 # At this point, we do the train val test split
 
 # Generator to generate synthetic data, remove class imbalance
 Generators_list = ["SMOTE", "downsampler", "CTGAN", "CopulaGAN", "TVAE"]
+Generators_run = [True, True, True, True, True]
 
 # AI models to train and test on the data
 Models_list = ["Catboost", "XGBoost", "randomforest", "decisiontree", "logistic_regression", "lightgbm"]
@@ -49,6 +63,16 @@ Writers_list = ["write_to_md", "write_to_html", "write_to_csv"]
 
 #################################################
 
+def validate_run_flags(methods, run_flags, label):
+    if len(methods) != len(run_flags):
+        raise ValueError(f"{label}_run must have one boolean for every {label} method.")
+
+
+validate_run_flags(Outliers_list, Outliers_run, "Outliers")
+validate_run_flags(Imputers_list, Imputers_run, "Imputers")
+validate_run_flags(Smoothers_list, Smoothers_run, "Smoothers")
+validate_run_flags(Generators_list, Generators_run, "Generators")
+
 
 
 
@@ -59,6 +83,11 @@ Writers_list = ["write_to_md", "write_to_html", "write_to_csv"]
 
 df = pd.read_csv(csv1_path)
 df_validation = pd.read_csv(csv2_path)
+
+feature_slicer = FeatureSlicer(FEATURE_PROJECTS)
+df, df_validation = feature_slicer.slice_pair(
+    df, df_validation, ACTIVE_FEATURE_PROJECT
+)
 
 #########################################
 
@@ -110,8 +139,11 @@ columns_outlier = [
     "height",
     "bmi"
 ]
+columns_outlier = [column for column in columns_outlier if column in df.columns]
 
-for outlier in Outliers_list:
+for outlier, should_run in zip(Outliers_list, Outliers_run):
+    if not should_run:
+        continue
     df_outlier_removed[outlier] = getattr(Outlier, outlier)(df, columns_outlier)
 
 #########################################
@@ -139,7 +171,9 @@ for outlier_method, df_out_rem in df_outlier_removed.items():
         columns=["subject_id", "mortality_flag"]
     )
 
-    for imputer in Imputers_list:
+    for imputer, should_run in zip(Imputers_list, Imputers_run):
+        if not should_run:
+            continue
         print(f"[IMPUTE] Running imputation: {imputer}")
 
         # Run imputation
@@ -169,7 +203,9 @@ df_smoothed = {}
 
 for imputer_method, df_imp in df_imputed.items():
     print(f"[SMOOTH] Starting smoothing for: {imputer_method}")
-    for smoother in Smoothers_list:
+    for smoother, should_run in zip(Smoothers_list, Smoothers_run):
+        if not should_run:
+            continue
         print(f"[SMOOTH] Running smoother: {smoother}")
         df_smoothed[f"{imputer_method}_{smoother}"] = getattr(Smoother, smoother)(df = df_imp)
         print(f"[SMOOTH] Completed smoother: {smoother}, rows: {len(df_smoothed[f'{imputer_method}_{smoother}'])}")
@@ -185,6 +221,9 @@ for imputer_method, df_imp in df_imputed.items():
 df_train = {}
 df_val = {}
 df_test = {}
+dataset_saver = DatasetSaver(
+    output_dir=os.path.join("saved_datasets", ACTIVE_FEATURE_PROJECT)
+)
 
 for method, df in df_smoothed.items():
     print(f"[SPLIT] Starting split for: {method}")
@@ -218,6 +257,20 @@ for method, df in df_smoothed.items():
     df_train[method] = train_df
     df_val[method] = val_df
     df_test[method] = test_df
+    dataset_saver.save(method, train_df, test_df, val_df)
+
+# A false preprocessing flag means use the already-saved complete triplet for
+# that method instead of rerunning its preprocessing steps.
+for outlier, outlier_run in zip(Outliers_list, Outliers_run):
+    for imputer, imputer_run in zip(Imputers_list, Imputers_run):
+        for smoother, smoother_run in zip(Smoothers_list, Smoothers_run):
+            method = f"{outlier}_{imputer}_{smoother}"
+            if outlier_run and imputer_run and smoother_run:
+                continue
+            cached = dataset_saver.load(method)
+            df_train[method] = cached["train"]
+            df_test[method] = cached["test"]
+            df_val[method] = cached["val"]
 
 #########################################
 
@@ -227,19 +280,39 @@ for method, df in df_smoothed.items():
 # ##### Step 6: Apply generators on Train #############################
 
 df_trained_generated = {}
+generated_val = {}
+generated_test = {}
 
 for name, df_tr in df_train.items():
     print(f"[GENERATOR] Starting generation for: {name}, rows: {len(df_tr)}")
 
-    for generator in Generators_list:
+    for generator, should_run in zip(Generators_list, Generators_run):
+        generated_name = f"{name}_{generator}"
+        if not should_run:
+            cached = dataset_saver.load(generated_name)
+            df_trained_generated[generated_name] = cached["train"]
+            generated_test[generated_name] = cached["test"]
+            generated_val[generated_name] = cached["val"]
+            print(f"[GENERATOR] Loaded saved data for: {generated_name}")
+            continue
         print(f"[GENERATOR] Running generator: {generator}")
         df_trained_generated[
-            f"{name}_{generator}"
+            generated_name
         ] = getattr(Generator, generator)(
             df_tr,
             "mortality_flag"
         )
-        print(f"[GENERATOR] Completed generator: {generator}, rows: {len(df_trained_generated[f'{name}_{generator}'])}")
+        generated_train = df_trained_generated[generated_name]
+        # Generators must only change training data; keep the held-out splits intact.
+        generated_val[generated_name] = df_val[name]
+        generated_test[generated_name] = df_test[name]
+        dataset_saver.save(
+            generated_name,
+            generated_train,
+            generated_test[generated_name],
+            generated_val[generated_name],
+        )
+        print(f"[GENERATOR] Completed generator: {generator}, rows: {len(generated_train)}")
 
 # ######################################################################
 
@@ -307,31 +380,13 @@ for method, train_df in df_train.items():
             writer_func = getattr(writer, writer_method)
             writer_func(results, full_name)
 
-# For datasets with generators: use df_trained_generated
-# Generators are applied on df_train, so we need to split again for val/test
+# For generated datasets, use the generated training data with the original
+# held-out validation and test sets. These are the exact triplets saved above.
 for method, df in df_trained_generated.items():
     print(f"[MODEL] Training model for generated: {method}, rows: {len(df)}")
-    # Get unique patients
-    patient_ids = df["subject_id"].unique()
-
-    # First split: 70% train, 30% temporary
-    train_ids, temp_ids = train_test_split(
-        patient_ids,
-        test_size=0.30,
-        random_state=42
-    )
-
-    # Second split: 15% validation, 15% test
-    val_ids, test_ids = train_test_split(
-        temp_ids,
-        test_size=0.50,
-        random_state=42
-    )
-
-    # Create the actual DataFrames
-    train_df = df[df["subject_id"].isin(train_ids)].copy()
-    val_df = df[df["subject_id"].isin(val_ids)].copy()
-    test_df = df[df["subject_id"].isin(test_ids)].copy()
+    train_df = df
+    val_df = generated_val[method]
+    test_df = generated_test[method]
 
     # Prepare data for training
     feature_columns = [col for col in df.columns if col not in ["subject_id", "mortality_flag"]]
