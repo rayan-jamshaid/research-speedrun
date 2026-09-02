@@ -28,10 +28,519 @@ csv1_path = './data/mimic_iv_processed.csv'
 csv2_path = './data/mimic_iii_processed.csv'
 
 # Add named experiments here. None keeps every feature from the raw CSV.
+
 FEATURE_PROJECTS = {
+
+    # ============================================================
+    # BASELINE / DEMOGRAPHICS
+    # ============================================================
+
     "all_features": None,
-    "test_project1": ["age", "sex", "rbc", "wbc", "hgb", "plt", "creatinine", "bun", "heart_rate", "respiratory_rate"],
-    "test_project2": ["albumin", "alt", "ast", "alp", "fibrinogen", "dbil", "temperature", "map", "weight", "height"],
+
+    "age_sex": [
+        "age",
+        "sex",
+    ],
+
+    "age_only": [
+        "age",
+    ],
+
+    "sex_only": [
+        "sex",
+    ],
+
+    # ============================================================
+    # COMORBIDITIES
+    # ============================================================
+
+    "comorbidities": [
+        "myocardial_infarction",
+        "congestive_heart_failure",
+        "peripheral_vascular_disease",
+        "cerebrovascular_disease",
+        "dementia",
+        "chronic_pulmonary_disease",
+        "rheumatic_disease",
+        "peptic_ulcer_disease",
+        "diabetes",
+        "paraplegia",
+        "renal_disease",
+        "malignant_cancer",
+        "severe_liver_disease",
+        "aids",
+    ],
+
+    # Demographics + comorbidities
+    "demographics_comorbidities": [
+        "age",
+        "sex",
+        "myocardial_infarction",
+        "congestive_heart_failure",
+        "peripheral_vascular_disease",
+        "cerebrovascular_disease",
+        "dementia",
+        "chronic_pulmonary_disease",
+        "rheumatic_disease",
+        "peptic_ulcer_disease",
+        "diabetes",
+        "paraplegia",
+        "renal_disease",
+        "malignant_cancer",
+        "severe_liver_disease",
+        "aids",
+    ],
+
+    # ============================================================
+    # VITAL SIGNS
+    # ============================================================
+
+    "all_vitals": [
+        "temperature",
+        "map",
+        "sbp",
+        "dbp",
+        "heart_rate",
+        "respiratory_rate",
+        "o2",
+        "weight",
+        "height",
+        "bmi",
+    ],
+
+    # Most clinically important acute vital signs
+    "important_vitals": [
+        "map",
+        "sbp",
+        "dbp",
+        "heart_rate",
+        "respiratory_rate",
+        "o2",
+        "temperature",
+    ],
+
+    # Very small set of high-priority acute vitals
+    "very_important_vitals": [
+        "map",
+        "heart_rate",
+        "respiratory_rate",
+        "o2",
+        "temperature",
+    ],
+
+    # Blood-pressure-related vitals
+    "blood_pressure_vitals": [
+        "map",
+        "sbp",
+        "dbp",
+    ],
+
+    # ============================================================
+    # LABORATORY FEATURES
+    # ============================================================
+
+    "all_labs": [
+        "rbc",
+        "wbc",
+        "hgb",
+        "plt",
+        "rdw",
+        "hct",
+        "aptt",
+        "pt",
+        "inr",
+        "bicarbonate",
+        "base_excess",
+        "anion_gap",
+        "chloride",
+        "calcium",
+        "sodium",
+        "potassium",
+        "glucose",
+        "creatinine",
+        "bun",
+        "tbil",
+        "albumin",
+        "alt",
+        "ast",
+        "alp",
+        "fibrinogen",
+        "dbil",
+    ],
+
+    # ============================================================
+    # HIGH-IMPORTANCE / CRITICAL LABS
+    # ============================================================
+
+    "important_labs": [
+        "wbc",
+        "hgb",
+        "plt",
+        "inr",
+        "bicarbonate",
+        "base_excess",
+        "anion_gap",
+        "sodium",
+        "potassium",
+        "glucose",
+        "creatinine",
+        "bun",
+        "albumin",
+        "ast",
+        "alt",
+        "tbil",
+    ],
+
+    "very_important_labs": [
+        "wbc",
+        "hgb",
+        "plt",
+        "inr",
+        "lactate",
+        "sodium",
+        "potassium",
+        "glucose",
+        "creatinine",
+        "bun",
+        "albumin",
+    ],
+
+    # ============================================================
+    # INDIVIDUAL LAB SYSTEMS
+    # ============================================================
+
+    "hematology": [
+        "rbc",
+        "wbc",
+        "hgb",
+        "plt",
+        "rdw",
+        "hct",
+    ],
+
+    "coagulation": [
+        "aptt",
+        "pt",
+        "inr",
+        "fibrinogen",
+    ],
+
+    "electrolytes_acid_base": [
+        "bicarbonate",
+        "base_excess",
+        "anion_gap",
+        "chloride",
+        "calcium",
+        "sodium",
+        "potassium",
+    ],
+
+    "renal": [
+        "creatinine",
+        "bun",
+    ],
+
+    "liver": [
+        "tbil",
+        "albumin",
+        "alt",
+        "ast",
+        "alp",
+        "dbil",
+    ],
+
+    "metabolic": [
+        "glucose",
+        "bicarbonate",
+        "base_excess",
+        "anion_gap",
+        "sodium",
+        "potassium",
+        "calcium",
+        "chloride",
+    ],
+
+    # ============================================================
+    # DEMOGRAPHICS + VITALS
+    # ============================================================
+
+    "demographics_vitals": [
+        "age",
+        "sex",
+        "temperature",
+        "map",
+        "sbp",
+        "dbp",
+        "heart_rate",
+        "respiratory_rate",
+        "o2",
+        "weight",
+        "height",
+        "bmi",
+    ],
+
+    "age_sex_important_vitals": [
+        "age",
+        "sex",
+        "map",
+        "heart_rate",
+        "respiratory_rate",
+        "o2",
+        "temperature",
+    ],
+
+    # ============================================================
+    # DEMOGRAPHICS + LABS
+    # ============================================================
+
+    "demographics_labs": [
+        "age",
+        "sex",
+        "rbc",
+        "wbc",
+        "hgb",
+        "plt",
+        "rdw",
+        "hct",
+        "aptt",
+        "pt",
+        "inr",
+        "bicarbonate",
+        "base_excess",
+        "anion_gap",
+        "chloride",
+        "calcium",
+        "sodium",
+        "potassium",
+        "glucose",
+        "creatinine",
+        "bun",
+        "tbil",
+        "albumin",
+        "alt",
+        "ast",
+        "alp",
+        "fibrinogen",
+        "dbil",
+    ],
+
+    # ============================================================
+    # VITALS + LABS
+    # ============================================================
+
+    "vitals_labs": [
+        "temperature",
+        "map",
+        "sbp",
+        "dbp",
+        "heart_rate",
+        "respiratory_rate",
+        "o2",
+        "weight",
+        "height",
+        "bmi",
+        "rbc",
+        "wbc",
+        "hgb",
+        "plt",
+        "rdw",
+        "hct",
+        "aptt",
+        "pt",
+        "inr",
+        "bicarbonate",
+        "base_excess",
+        "anion_gap",
+        "chloride",
+        "calcium",
+        "sodium",
+        "potassium",
+        "glucose",
+        "creatinine",
+        "bun",
+        "tbil",
+        "albumin",
+        "alt",
+        "ast",
+        "alp",
+        "fibrinogen",
+        "dbil",
+    ],
+
+    # ============================================================
+    # CLINICALLY RELEVANT CORE SETS
+    # ============================================================
+
+    "core_clinical": [
+        "age",
+        "sex",
+        "myocardial_infarction",
+        "congestive_heart_failure",
+        "cerebrovascular_disease",
+        "chronic_pulmonary_disease",
+        "diabetes",
+        "renal_disease",
+        "malignant_cancer",
+        "severe_liver_disease",
+        "map",
+        "heart_rate",
+        "respiratory_rate",
+        "o2",
+        "temperature",
+        "wbc",
+        "hgb",
+        "plt",
+        "inr",
+        "sodium",
+        "potassium",
+        "glucose",
+        "creatinine",
+        "bun",
+        "albumin",
+        "ast",
+        "alt",
+    ],
+
+    "minimal_clinical": [
+        "age",
+        "sex",
+        "map",
+        "heart_rate",
+        "respiratory_rate",
+        "o2",
+        "wbc",
+        "hgb",
+        "plt",
+        "sodium",
+        "potassium",
+        "glucose",
+        "creatinine",
+        "bun",
+    ],
+
+    # ============================================================
+    # EVERYTHING EXCEPT ONE MAJOR CATEGORY
+    # Useful for ablation experiments
+    # ============================================================
+
+    "no_comorbidities": [
+        "age",
+        "sex",
+        "rbc",
+        "wbc",
+        "hgb",
+        "plt",
+        "rdw",
+        "hct",
+        "aptt",
+        "pt",
+        "inr",
+        "bicarbonate",
+        "base_excess",
+        "anion_gap",
+        "chloride",
+        "calcium",
+        "sodium",
+        "potassium",
+        "glucose",
+        "creatinine",
+        "bun",
+        "tbil",
+        "albumin",
+        "alt",
+        "ast",
+        "alp",
+        "fibrinogen",
+        "dbil",
+        "temperature",
+        "map",
+        "sbp",
+        "dbp",
+        "heart_rate",
+        "respiratory_rate",
+        "o2",
+        "weight",
+        "height",
+        "bmi",
+        "insurance",
+    ],
+
+    "no_labs": [
+        "age",
+        "sex",
+        "myocardial_infarction",
+        "congestive_heart_failure",
+        "peripheral_vascular_disease",
+        "cerebrovascular_disease",
+        "dementia",
+        "chronic_pulmonary_disease",
+        "rheumatic_disease",
+        "peptic_ulcer_disease",
+        "diabetes",
+        "paraplegia",
+        "renal_disease",
+        "malignant_cancer",
+        "severe_liver_disease",
+        "aids",
+        "temperature",
+        "map",
+        "sbp",
+        "dbp",
+        "heart_rate",
+        "respiratory_rate",
+        "o2",
+        "weight",
+        "height",
+        "bmi",
+        "insurance",
+    ],
+
+    "no_vitals": [
+        "age",
+        "sex",
+        "myocardial_infarction",
+        "congestive_heart_failure",
+        "peripheral_vascular_disease",
+        "cerebrovascular_disease",
+        "dementia",
+        "chronic_pulmonary_disease",
+        "rheumatic_disease",
+        "peptic_ulcer_disease",
+        "diabetes",
+        "paraplegia",
+        "renal_disease",
+        "malignant_cancer",
+        "severe_liver_disease",
+        "aids",
+        "rbc",
+        "wbc",
+        "hgb",
+        "plt",
+        "rdw",
+        "hct",
+        "aptt",
+        "pt",
+        "inr",
+        "bicarbonate",
+        "base_excess",
+        "anion_gap",
+        "chloride",
+        "calcium",
+        "sodium",
+        "potassium",
+        "glucose",
+        "creatinine",
+        "bun",
+        "tbil",
+        "albumin",
+        "alt",
+        "ast",
+        "alp",
+        "fibrinogen",
+        "dbil",
+        "insurance",
+    ],
+
 }
 ACTIVE_FEATURE_PROJECT = "all_features"
 
