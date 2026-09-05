@@ -2,11 +2,11 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.model_selection import train_test_split
 
 import os
-from Imputers import Imputation
-from Smoother import Smoother
-from Models.Models_regression import ModelsRegression
-from Writers import Writer
-from Outlier import Outlier
+from src.preprocessing.Imputers import Imputation
+from src.preprocessing.Smoother import Smoother
+from src.modeling.Models.Models_regression import ModelsRegression
+from src.utils.Writers import Writer
+from src.preprocessing.Outlier import Outlier
 
 
 

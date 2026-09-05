@@ -1,12 +1,12 @@
 from sklearn.experimental import enable_iterative_imputer
 
 
-from Imputers import Imputation
-from Smoother import Smoother
-from Generators import Generator
-from Models import Models
-from Writers import Writer
-from Outlier import Outlier
+from src.preprocessing.Imputers import Imputation
+from src.preprocessing.Smoother import Smoother
+from src.data.Generators import Generator
+from src.modeling.Models import Models
+from src.utils.Writers import Writer
+from src.preprocessing.Outlier import Outlier
 
 
 import numpy as np

@@ -2,14 +2,14 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.model_selection import train_test_split
 
 import os
-from Imputers import Imputation
-from Smoother import Smoother
-from Generators import Generator
-from Models import Models
-from Writers import Writer
-from Outlier import Outlier
-from DatasetSaver import DatasetSaver
-from features_slicer import FeatureSlicer
+from src.preprocessing.Imputers import Imputation
+from src.preprocessing.Smoother import Smoother
+from src.data.Generators import Generator
+from src.modeling.Models import Models
+from src.utils.Writers import Writer
+from src.preprocessing.Outlier import Outlier
+from src.data.DatasetSaver import DatasetSaver
+from src.preprocessing.features_slicer import FeatureSlicer
 
 
 
