@@ -15,7 +15,7 @@ class Smoother:
     @staticmethod
     def winsorization(
         df: pd.DataFrame,
-        limits: tuple = (0.01, 0.01),
+        limits: tuple = (0.07, 0.07),
         columns: list = None
     ) -> pd.DataFrame:
         """
