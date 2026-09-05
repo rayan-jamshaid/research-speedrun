@@ -9,7 +9,7 @@ class BaseWriterRegression(ABC):
     Follows SOLID principles by providing a common interface for all regression writers.
     """
 
-    def __init__(self, output_dir="../results"):
+    def __init__(self, output_dir="/results"):
         """
         Parameters
         ----------

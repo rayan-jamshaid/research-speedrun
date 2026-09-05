@@ -670,69 +670,19 @@ else:
 
 
 
-########STEP 3: Smoothening & Imputation (Smoothening -> Imputation) #################################
+########STEP 3: Do train/val/test split BEFORE smoothing/imputation #########################
+# CRITICAL: Split BEFORE any imputation to prevent data leakage.
 
-df_smoothed = {}
+df_train_split = {}
+df_val_split = {}
+df_test_split = {}
 
 for outlier_method, df_out_rem in df_outlier_removed.items():
-    print(f"[PROCESS] Starting processing for outlier method: {outlier_method}")
-
-    # Save subject_id and mortality_flag
-    subject_ids = df_out_rem["subject_id"].copy()
-    mortality = df_out_rem["mortality_flag"].copy()
-
-    # Remove subject_id and mortality_flag before processing
-    df_for_processing = df_out_rem.drop(
-        columns=["subject_id", "mortality_flag"]
-    )
-
-    for smoother, smoother_run in zip(Smoothers_list, Smoothers_run):
-        if not smoother_run:
-            continue
-        print(f"[SMOOTH] Running smoother: {smoother}")
-        # Run smoother on the feature-only DataFrame
-        df_smoothed_features = getattr(Smoother, smoother)(df=df_for_processing)
-
-        for imputer, imputer_run in zip(Imputers_list, Imputers_run):
-            if not imputer_run:
-                continue
-            print(f"[IMPUTE] Running imputation: {imputer} on smoothed data")
-            # Run imputation
-            df_result = getattr(Imputation, imputer)(
-                df=df_smoothed_features,
-                target_column="mortality_flag"
-            )
-
-            # Add subject_id and mortality_flag back
-            df_result.insert(0, "subject_id", subject_ids)
-            df_result.insert(3, "mortality_flag", mortality)
-
-            # Store generated dataframe in df_smoothed
-            method_key = f"{outlier_method}_{smoother}_{imputer}"
-            df_smoothed[method_key] = df_result
-            print(f"[PROCESS] Completed {method_key}, rows: {len(df_result)}")
-
-
-#########################################
-
-
-
-
-########STEP 5: do a train/val/test split #################################
-
-df_train = {}
-df_val = {}
-df_test = {}
-dataset_saver = DatasetSaver(
-    output_dir=os.path.join("saved_datasets", ACTIVE_FEATURE_PROJECT)
-)
-
-for method, df in df_smoothed.items():
-    print(f"[SPLIT] Starting split for: {method}")
-    print(f"[SPLIT] Total rows: {len(df)}, Unique patients: {len(df['subject_id'].unique())}")
+    print(f"[SPLIT] Starting split for: {outlier_method}")
+    print(f"[SPLIT] Total rows: {len(df_out_rem)}, Unique patients: {len(df_out_rem['subject_id'].unique())}")
 
     # Get unique patients
-    patient_ids = df["subject_id"].unique()
+    patient_ids = df_out_rem["subject_id"].unique()
 
     # First split: 70% train, 30% temporary
     train_ids, temp_ids = train_test_split(
@@ -741,19 +691,112 @@ for method, df in df_smoothed.items():
         random_state=42
     )
 
-    # Second split: 15% validation, 15% test
+    # Second split: 15% validation, 15% test (split the 30% equally)
     val_ids, test_ids = train_test_split(
         temp_ids,
         test_size=0.50,
         random_state=42
     )
 
-    # Create the actual DataFrames
-    train_df = df[df["subject_id"].isin(train_ids)].copy()
-    val_df = df[df["subject_id"].isin(val_ids)].copy()
-    test_df = df[df["subject_id"].isin(test_ids)].copy()
+    # Create the actual DataFrames based on patient IDs
+    train_df = df_out_rem[df_out_rem["subject_id"].isin(train_ids)].copy()
+    val_df = df_out_rem[df_out_rem["subject_id"].isin(val_ids)].copy()
+    test_df = df_out_rem[df_out_rem["subject_id"].isin(test_ids)].copy()
 
     print(f"[SPLIT] Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
+
+    df_train_split[outlier_method] = train_df
+    df_val_split[outlier_method] = val_df
+    df_test_split[outlier_method] = test_df
+
+#########################################
+
+
+
+
+########STEP 4: Smoothening & Imputation (fit on train, apply to val/test) #################################
+
+df_smoothed = {}
+
+for outlier_method in df_train_split.keys():
+    print(f"[PROCESS] Starting processing for outlier method: {outlier_method}")
+
+    # Get train, val, test for this outlier method
+    df_train = df_train_split[outlier_method].copy()
+    df_val = df_val_split[outlier_method].copy()
+    df_test = df_test_split[outlier_method].copy()
+
+    # Save subject_id and mortality_flag
+    train_subject_ids = df_train["subject_id"].copy()
+    train_mortality = df_train["mortality_flag"].copy()
+    
+    val_subject_ids = df_val["subject_id"].copy()
+    val_mortality = df_val["mortality_flag"].copy()
+    
+    test_subject_ids = df_test["subject_id"].copy()
+    test_mortality = df_test["mortality_flag"].copy()
+
+    # Remove subject_id and mortality_flag before processing
+    df_train_for_processing = df_train.drop(columns=["subject_id", "mortality_flag"])
+    df_val_for_processing = df_val.drop(columns=["subject_id", "mortality_flag"])
+    df_test_for_processing = df_test.drop(columns=["subject_id", "mortality_flag"])
+
+    for smoother, smoother_run in zip(Smoothers_list, Smoothers_run):
+        if not smoother_run:
+            continue
+        print(f"[SMOOTH] Running smoother: {smoother}")
+        
+        # Apply smoother to each split
+        df_train_smoothed = getattr(Smoother, smoother)(df=df_train_for_processing)
+        df_val_smoothed = getattr(Smoother, smoother)(df=df_val_for_processing)
+        df_test_smoothed = getattr(Smoother, smoother)(df=df_test_for_processing)
+
+        for imputer, imputer_run in zip(Imputers_list, Imputers_run):
+            if not imputer_run:
+                continue
+            print(f"[IMPUTE] Running imputation: {imputer} on smoothed data")
+            
+            # Create imputer instance and fit ONLY on train data
+            imputer_instance = Imputation(imputer)
+            imputer_instance.fit(df_train_smoothed)
+
+            # Transform all three sets using the same fitted imputer
+            df_train_result = imputer_instance.transform(df_train_smoothed)
+            df_val_result = imputer_instance.transform(df_val_smoothed)
+            df_test_result = imputer_instance.transform(df_test_smoothed)
+
+            # Add subject_id and mortality_flag back
+            df_train_result.insert(0, "subject_id", train_subject_ids)
+            df_train_result.insert(3, "mortality_flag", train_mortality)
+            
+            df_val_result.insert(0, "subject_id", val_subject_ids)
+            df_val_result.insert(3, "mortality_flag", val_mortality)
+            
+            df_test_result.insert(0, "subject_id", test_subject_ids)
+            df_test_result.insert(3, "mortality_flag", test_mortality)
+
+            # Store generated dataframes in df_smoothed
+            method_key = f"{outlier_method}_{smoother}_{imputer}"
+            df_smoothed[method_key] = (df_train_result, df_val_result, df_test_result)
+            print(f"[PROCESS] Completed {method_key}")
+
+#########################################
+
+
+
+
+########STEP 5: Extract train/val/test from processed data #################################
+
+df_train = {}
+df_val = {}
+df_test = {}
+dataset_saver = DatasetSaver(
+    output_dir=os.path.join("saved_datasets", ACTIVE_FEATURE_PROJECT)
+)
+
+for method, (train_df, val_df, test_df) in df_smoothed.items():
+    print(f"[EXTRACT] Extracting splits for: {method}")
+    print(f"[EXTRACT] Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
 
     # Store them
     df_train[method] = train_df

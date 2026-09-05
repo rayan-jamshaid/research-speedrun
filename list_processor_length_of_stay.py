@@ -126,85 +126,126 @@ else:
 
 
 
-########STEP 3: Smoothening & Imputation (Smoothening -> Imputation) #################################
+########STEP 3: Do train/val/test split BEFORE smoothing/imputation #########################
+# CRITICAL: Split BEFORE any imputation to prevent data leakage.
 
-df_smoothed = {}
+df_train_split = {}
+df_val_split = {}
+df_test_split = {}
 
 for outlier_method, df_out_rem in df_outlier_removed.items():
-    print(f"[PROCESS] Starting processing for outlier method: {outlier_method}")
-
-    # Save subject_id and target column
-    subject_ids = df_out_rem["subject_id"].copy()
-    target_values = df_out_rem[TARGET_COLUMN].copy()
-
-    # Remove subject_id and target before processing
-    df_for_processing = df_out_rem.drop(
-        columns=["subject_id", TARGET_COLUMN]
-    )
-
-    for smoother in Smoothers_list:
-        print(f"[SMOOTH] Running smoother: {smoother}")
-        # Run smoother on the feature-only DataFrame
-        df_smoothed_features = getattr(Smoother, smoother)(df=df_for_processing)
-
-        for imputer in Imputers_list:
-            print(f"[IMPUTE] Running imputation: {imputer} on smoothed data")
-            # Run imputation (target_column hint is used internally by some
-            # imputers to avoid leaking the target; pass it so the API is
-            # consistent even though target has been removed from df)
-            df_result = getattr(Imputation, imputer)(
-                df=df_smoothed_features,
-                target_column=TARGET_COLUMN
-            )
-
-            # Add subject_id and target back
-            df_result.insert(0, "subject_id", subject_ids.values)
-            df_result.insert(3, TARGET_COLUMN, target_values.values)
-
-            # Store generated dataframe in df_smoothed
-            method_key = f"{outlier_method}_{smoother}_{imputer}"
-            df_smoothed[method_key] = df_result
-            print(f"[PROCESS] Completed {method_key}, rows: {len(df_result)}")
-
-
-#########################################
-
-
-
-
-########STEP 4: Train / Val / Test split #################################
-
-df_train = {}
-df_val = {}
-df_test = {}
-
-for method, df in df_smoothed.items():
-    print(f"[SPLIT] Starting split for: {method}")
-    print(f"[SPLIT] Total rows: {len(df)}, Unique patients: {len(df['subject_id'].unique())}")
+    print(f"[SPLIT] Starting split for: {outlier_method}")
+    print(f"[SPLIT] Total rows: {len(df_out_rem)}, Unique patients: {len(df_out_rem['subject_id'].unique())}")
 
     # Get unique patients
-    patient_ids = df["subject_id"].unique()
+    patient_ids = df_out_rem["subject_id"].unique()
 
-    # First split: 70 % train, 30 % temporary
+    # First split: 70% train, 30% temporary
     train_ids, temp_ids = train_test_split(
         patient_ids,
         test_size=0.30,
         random_state=42
     )
 
-    # Second split: 15 % validation, 15 % test
+    # Second split: 15% validation, 15% test (split the 30% equally)
     val_ids, test_ids = train_test_split(
         temp_ids,
         test_size=0.50,
         random_state=42
     )
 
-    # Create the actual DataFrames
-    train_df = df[df["subject_id"].isin(train_ids)].copy()
-    val_df   = df[df["subject_id"].isin(val_ids)].copy()
-    test_df  = df[df["subject_id"].isin(test_ids)].copy()
+    # Create the actual DataFrames based on patient IDs
+    train_df = df_out_rem[df_out_rem["subject_id"].isin(train_ids)].copy()
+    val_df = df_out_rem[df_out_rem["subject_id"].isin(val_ids)].copy()
+    test_df = df_out_rem[df_out_rem["subject_id"].isin(test_ids)].copy()
 
     print(f"[SPLIT] Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
+
+    df_train_split[outlier_method] = train_df
+    df_val_split[outlier_method] = val_df
+    df_test_split[outlier_method] = test_df
+
+#########################################
+
+
+
+
+########STEP 4: Smoothening & Imputation (fit on train, apply to val/test) #################################
+
+df_smoothed = {}
+
+for outlier_method in df_train_split.keys():
+    print(f"[PROCESS] Starting processing for outlier method: {outlier_method}")
+
+    # Get train, val, test for this outlier method
+    df_train = df_train_split[outlier_method].copy()
+    df_val = df_val_split[outlier_method].copy()
+    df_test = df_test_split[outlier_method].copy()
+
+    # Save subject_id and target column
+    train_subject_ids = df_train["subject_id"].copy()
+    train_target_values = df_train[TARGET_COLUMN].copy()
+    
+    val_subject_ids = df_val["subject_id"].copy()
+    val_target_values = df_val[TARGET_COLUMN].copy()
+    
+    test_subject_ids = df_test["subject_id"].copy()
+    test_target_values = df_test[TARGET_COLUMN].copy()
+
+    # Remove subject_id and target before processing
+    df_train_for_processing = df_train.drop(columns=["subject_id", TARGET_COLUMN])
+    df_val_for_processing = df_val.drop(columns=["subject_id", TARGET_COLUMN])
+    df_test_for_processing = df_test.drop(columns=["subject_id", TARGET_COLUMN])
+
+    for smoother in Smoothers_list:
+        print(f"[SMOOTH] Running smoother: {smoother}")
+        
+        # Apply smoother to each split
+        df_train_smoothed = getattr(Smoother, smoother)(df=df_train_for_processing)
+        df_val_smoothed = getattr(Smoother, smoother)(df=df_val_for_processing)
+        df_test_smoothed = getattr(Smoother, smoother)(df=df_test_for_processing)
+
+        for imputer in Imputers_list:
+            print(f"[IMPUTE] Running imputation: {imputer} on smoothed data")
+            
+            # Create imputer instance and fit ONLY on train data
+            imputer_instance = Imputation(imputer)
+            imputer_instance.fit(df_train_smoothed)
+
+            # Transform all three sets using the same fitted imputer
+            df_train_result = imputer_instance.transform(df_train_smoothed)
+            df_val_result = imputer_instance.transform(df_val_smoothed)
+            df_test_result = imputer_instance.transform(df_test_smoothed)
+
+            # Add subject_id and target back
+            df_train_result.insert(0, "subject_id", train_subject_ids.values)
+            df_train_result.insert(3, TARGET_COLUMN, train_target_values.values)
+            
+            df_val_result.insert(0, "subject_id", val_subject_ids.values)
+            df_val_result.insert(3, TARGET_COLUMN, val_target_values.values)
+            
+            df_test_result.insert(0, "subject_id", test_subject_ids.values)
+            df_test_result.insert(3, TARGET_COLUMN, test_target_values.values)
+
+            # Store generated dataframes
+            method_key = f"{outlier_method}_{smoother}_{imputer}"
+            df_smoothed[method_key] = (df_train_result, df_val_result, df_test_result)
+            print(f"[PROCESS] Completed {method_key}")
+
+#########################################
+
+
+
+
+########STEP 5: Extract train/val/test from processed data #################################
+
+df_train = {}
+df_val = {}
+df_test = {}
+
+for method, (train_df, val_df, test_df) in df_smoothed.items():
+    print(f"[EXTRACT] Extracting splits for: {method}")
+    print(f"[EXTRACT] Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
 
     # Store them
     df_train[method] = train_df
@@ -216,7 +257,7 @@ for method, df in df_smoothed.items():
 
 
 
-# ##### Step 5: Train & evaluate regression models ############################################
+# ##### Step 6: Train & evaluate regression models ############################################
 
 results_dir = "../results_length_of_stay"
 os.makedirs(results_dir, exist_ok=True)
