@@ -53,12 +53,26 @@ def evaluate(model, X, y):
     }
 
 def main():
+    # Detect GPU availability
+    try:
+        import torch
+        if torch.cuda.is_available():
+            device = "cuda"
+            print(f"[DEVICE] GPU detected: {torch.cuda.get_device_name(0)} — using CUDA.")
+        else:
+            device = "cpu"
+            print("[DEVICE] No GPU detected — using CPU.")
+    except ImportError:
+        device = "cpu"
+        print("[DEVICE] PyTorch not available for device detection — defaulting to CPU.")
+
     try:
         from tabfm import TabFMClassifier
         from tabfm import tabfm_v1_0_0_pytorch as tabfm_v1_0_0
-        model = tabfm_v1_0_0.load()
+        model = tabfm_v1_0_0.load(device=device)
         clf = TabFMClassifier(model=model)
         has_tabfm = True
+        print(f"[TABFM] Loaded TabFM model on device: {device}")
     except ImportError as e:
         print(f"TabFM import failed. Make sure you install its dependencies: {e}")
         print("To install: pip install ./tabfm[pytorch] safetensors huggingface_hub")
