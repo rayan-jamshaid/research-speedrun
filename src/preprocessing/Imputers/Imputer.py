@@ -1,14 +1,16 @@
 import pandas as pd
 import numpy as np
 
+# Required for IterativeImputer
+from sklearn.experimental import enable_iterative_imputer
+
 from sklearn.impute import (
     SimpleImputer,
     KNNImputer,
     IterativeImputer
 )
 
-# Required for IterativeImputer
-from sklearn.experimental import enable_iterative_imputer
+
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import BayesianRidge
