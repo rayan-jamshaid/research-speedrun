@@ -24,14 +24,63 @@ from sklearn.preprocessing import LabelEncoder
 
 # The data we need to concern ourselves with
 
-csv1_path = './data/mimic_iv_processed.csv'
-csv2_path = './data/mimic_iii_processed.csv'
+csv1_path = './content/mimic_iv_processed.csv'
+csv2_path = './content/mimic_iii_processed.csv'
 
 # Add named experiments here. None keeps every feature from the raw CSV.
 FEATURE_PROJECTS = {
+
+    # All features — no filtering
     "all_features": None,
-    "test_project1": ["age", "sex", "rbc", "wbc", "hgb", "plt", "creatinine", "bun", "heart_rate", "respiratory_rate"],
-    "test_project2": ["albumin", "alt", "ast", "alp", "fibrinogen", "dbil", "temperature", "map", "weight", "height"],
+
+    # Laboratory results only
+    "labs_only": [
+        "rbc",
+        "wbc",
+        "hgb",
+        "plt",
+        "rdw",
+        "hct",
+        "aptt",
+        "pt",
+        "inr",
+        "bicarbonate",
+        "base_excess",
+        "anion_gap",
+        "chloride",
+        "calcium",
+        "sodium",
+        "potassium",
+        "glucose",
+        "creatinine",
+        "bun",
+        "tbil",
+        "albumin",
+        "alt",
+        "ast",
+        "alp",
+        "fibrinogen",
+        "dbil",
+    ],
+
+    # Comorbidities (Charlson index flags) only
+    "comorbidities_only": [
+        "myocardial_infarction",
+        "congestive_heart_failure",
+        "peripheral_vascular_disease",
+        "cerebrovascular_disease",
+        "dementia",
+        "chronic_pulmonary_disease",
+        "rheumatic_disease",
+        "peptic_ulcer_disease",
+        "diabetes",
+        "paraplegia",
+        "renal_disease",
+        "malignant_cancer",
+        "severe_liver_disease",
+        "aids",
+    ],
+
 }
 ACTIVE_FEATURE_PROJECT = "all_features"
 
