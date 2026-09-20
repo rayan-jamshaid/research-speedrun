@@ -32,3 +32,16 @@ results/*
 
 raw_data
 raw_data/*
+
+
+.csv
+.csv/*
+*.csv
+
+.xlsx
+.xlsx/*
+*.xlsx
+
+
+
+tabfm

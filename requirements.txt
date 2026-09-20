@@ -10,3 +10,15 @@ datetime
 scikit-learn
 optuna
 sdv
+
+pennylane
+tensorflow
+torch
+joblib
+
+-e ./tabfm[pytorch]
+safetensors
+huggingface_hub
+
+
+jaxtyping
