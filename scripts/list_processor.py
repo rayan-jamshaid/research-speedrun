@@ -2,6 +2,14 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.model_selection import train_test_split
 
 import os
+import sys
+
+# Make the repository root importable when this file is launched directly
+# (for example: !python scripts/list_processor.py in Google Colab).
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from src.preprocessing.Imputers import Imputation
 from src.preprocessing.Smoother import Smoother
 from src.data.Generators import Generator
@@ -24,8 +32,8 @@ from sklearn.preprocessing import LabelEncoder
 
 # The data we need to concern ourselves with
 
-csv1_path = './content/mimic_iv_processed.csv'
-csv2_path = './content/mimic_iii_processed.csv'
+csv1_path = os.path.join(PROJECT_ROOT, "content", "mimic_iv_processed.csv")
+csv2_path = os.path.join(PROJECT_ROOT, "content", "mimic_iii_processed.csv")
 
 # Add named experiments here. None keeps every feature from the raw CSV.
 FEATURE_PROJECTS = {
@@ -361,7 +369,7 @@ df_train = {}
 df_val = {}
 df_test = {}
 dataset_saver = DatasetSaver(
-    output_dir=os.path.join("saved_datasets", ACTIVE_FEATURE_PROJECT)
+    output_dir=os.path.join(PROJECT_ROOT, "saved_datasets", ACTIVE_FEATURE_PROJECT)
 )
 
 for method in df_train_smoothed.keys():
@@ -439,7 +447,7 @@ for name, df_tr in df_train.items():
 
 # ##### Step 8: Apply the AI model ############################################################
 
-results_dir = "../results"
+results_dir = os.path.join(PROJECT_ROOT, "results")
 os.makedirs(results_dir, exist_ok=True)
 
 # Create Writer instance
