@@ -1,4 +1,5 @@
 import os
+import os
 import sys
 import numpy as np
 import pandas as pd
@@ -80,24 +81,18 @@ def run_dataset(data_path, dataset_name, device):
         X_temp, y_temp, test_size=(0.15 / 0.85), random_state=42, stratify=y_temp
     )
 
-    df_train = X_train.copy(); df_train[target_column] = y_train
-    df_dev = X_dev.copy(); df_dev[target_column] = y_dev
-    df_test = X_test.copy(); df_test[target_column] = y_test
-
-    print(f"[SPLIT] {dataset_name}: train={len(df_train)}, dev={len(df_dev)}, test={len(df_test)}")
+    print(f"[SPLIT] {dataset_name}: train={len(X_train)}, dev={len(X_dev)}, test={len(X_test)}")
     print(f"[IMPUTE] {dataset_name}: IterativeImputer")
     imputer = Imputation(method="iterative", random_state=42)
-    imputer.fit(df_train)
-    df_train_imp = imputer.transform(df_train)
-    df_dev_imp = imputer.transform(df_dev)
-    df_test_imp = imputer.transform(df_test)
-
-    X_train_imp = df_train_imp.drop(columns=[target_column])
-    y_train_imp = df_train_imp[target_column].values
-    X_dev_imp = df_dev_imp.drop(columns=[target_column])
-    y_dev_imp = df_dev_imp[target_column].values
-    X_test_imp = df_test_imp.drop(columns=[target_column])
-    y_test_imp = df_test_imp[target_column].values
+    # Fit on training features only: target labels must never influence
+    # imputation of validation or test features.
+    imputer.fit(X_train)
+    X_train_imp = imputer.transform(X_train)
+    X_dev_imp = imputer.transform(X_dev)
+    X_test_imp = imputer.transform(X_test)
+    y_train_imp = y_train.values
+    y_dev_imp = y_dev.values
+    y_test_imp = y_test.values
 
     print(f"[TABFM] Fitting {dataset_name}...")
     clf.fit(X_train_imp, y_train_imp)

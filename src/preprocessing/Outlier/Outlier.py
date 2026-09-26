@@ -5,9 +5,16 @@ from scipy import stats
 
 class Outlier:
     """
+    Utility class for detecting outliers and replacing them with NaN.
+
+    Unlike row-removal methods, these methods preserve all rows and
+    replace only the detected outlier values with NaN. The resulting
+    missing values can then be handled by an imputation method.
+    """
 
     @staticmethod
     def fit_bounds(df, columns, method):
+        """Learn outlier thresholds from training data only."""
         bounds = {}
         for col in columns:
             s = df[col]
@@ -25,6 +32,7 @@ class Outlier:
 
     @staticmethod
     def apply_bounds(df, bounds, method):
+        """Apply training-derived outlier thresholds without refitting."""
         result = df.copy()
         for col, values in bounds.items():
             if values is None:
@@ -37,12 +45,6 @@ class Outlier:
                 mask = np.abs((result[col] - median) / mad) > 3.5
             result.loc[mask, col] = np.nan
         return result
-    Utility class for detecting outliers and replacing them with NaN.
-
-    Unlike row-removal methods, these methods preserve all rows and
-    replace only the detected outlier values with NaN. The resulting
-    missing values can then be handled by an imputation method.
-    """
 
     @staticmethod
     def iqr(

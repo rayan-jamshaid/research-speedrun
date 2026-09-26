@@ -4,19 +4,6 @@ from scipy.stats.mstats import winsorize
 
 class Smoother:
     """
-
-    @staticmethod
-    def fit_winsor_bounds(df, limits=(0.02, 0.02), columns=None):
-        columns = columns if columns is not None else df.select_dtypes(include="number").columns
-        return {col: (df[col].quantile(limits[0]), df[col].quantile(1 - limits[1]))
-                for col in columns if df[col].dropna().size}
-
-    @staticmethod
-    def apply_winsor_bounds(df, bounds):
-        result = df.copy()
-        for col, (lower, upper) in bounds.items():
-            result[col] = result[col].clip(lower=lower, upper=upper)
-        return result
     Data smoothing techniques for tabular datasets.
 
     Methods
@@ -24,6 +11,21 @@ class Smoother:
     winsorization(df, limits=(0.01, 0.01), columns=None)
         Applies Winsorization to numerical columns by capping extreme values.
     """
+
+    @staticmethod
+    def fit_winsor_bounds(df, limits=(0.02, 0.02), columns=None):
+        """Learn winsorization cutoffs from training data only."""
+        columns = columns if columns is not None else df.select_dtypes(include="number").columns
+        return {col: (df[col].quantile(limits[0]), df[col].quantile(1 - limits[1]))
+                for col in columns if df[col].dropna().size}
+
+    @staticmethod
+    def apply_winsor_bounds(df, bounds):
+        """Apply training-derived winsorization cutoffs without refitting."""
+        result = df.copy()
+        for col, (lower, upper) in bounds.items():
+            result[col] = result[col].clip(lower=lower, upper=upper)
+        return result
 
     @staticmethod
     def winsorization(
