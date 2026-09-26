@@ -5,6 +5,38 @@ from scipy import stats
 
 class Outlier:
     """
+
+    @staticmethod
+    def fit_bounds(df, columns, method):
+        bounds = {}
+        for col in columns:
+            s = df[col]
+            if method == "iqr":
+                q1, q3 = s.quantile(.25), s.quantile(.75)
+                spread = q3 - q1
+                bounds[col] = (q1 - 1.5 * spread, q3 + 1.5 * spread)
+            elif method == "modified_z_score":
+                median = s.median()
+                mad = stats.median_abs_deviation(s, scale="normal", nan_policy="omit")
+                bounds[col] = None if mad == 0 or np.isnan(mad) else (median, mad)
+            else:
+                raise ValueError(f"Unknown outlier method: {method}")
+        return bounds
+
+    @staticmethod
+    def apply_bounds(df, bounds, method):
+        result = df.copy()
+        for col, values in bounds.items():
+            if values is None:
+                continue
+            if method == "iqr":
+                lower, upper = values
+                mask = (result[col] < lower) | (result[col] > upper)
+            else:
+                median, mad = values
+                mask = np.abs((result[col] - median) / mad) > 3.5
+            result.loc[mask, col] = np.nan
+        return result
     Utility class for detecting outliers and replacing them with NaN.
 
     Unlike row-removal methods, these methods preserve all rows and

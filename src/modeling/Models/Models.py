@@ -13,6 +13,7 @@ from sklearn.linear_model import LogisticRegression
 from lightgbm import LGBMClassifier
 from sklearn.model_selection import RandomizedSearchCV
 import optuna
+from .quantum_classifier import PennyLaneQuantumClassifier
 
 from sklearn.metrics import (
     accuracy_score,
@@ -750,6 +751,7 @@ class Models:
         self._decision_tree      = DecisionTreeModel(results_dir)
         self._logistic_regression = LogisticRegressionModel(results_dir)
         self._lightgbm           = LightGBMModel(results_dir)
+        self._quantum_ml         = PennyLaneQuantumClassifier(results_dir=results_dir)
 
     # ------------------------------------------------------------------
     # Public methods — identical signatures to the original Models class
@@ -863,6 +865,20 @@ class Models:
     ) -> Dict[str, Any]:
         """Train and evaluate LightGBM. Delegates to LightGBMModel."""
         return self._lightgbm.run(
+            X_train, y_train, X_val, y_val, X_test, y_test,
+            X_external, y_external, **kwargs
+        )
+
+    def quantum_ml(
+        self,
+        X_train, y_train,
+        X_val, y_val,
+        X_test, y_test,
+        X_external=None, y_external=None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Train and evaluate the PennyLane variational classifier."""
+        return self._quantum_ml.run(
             X_train, y_train, X_val, y_val, X_test, y_test,
             X_external, y_external, **kwargs
         )

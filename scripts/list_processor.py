@@ -101,7 +101,14 @@ Generators_list = ["SMOTE", "downsampler", "CTGAN", "CopulaGAN", "TVAE"]
 Generators_run = [True, True, True, True, True]
 
 # AI models to train and test on the data
-Models_list = ["Catboost", "XGBoost", "randomforest", "decisiontree", "logistic_regression", "lightgbm"]
+Models_list = [
+    "Catboost",
+    "XGBoost",
+    "randomforest",
+    "decisiontree",
+    "lightgbm",
+    "quantum_ml",
+]
 
 # Write methods
 # Writers_list = ["write_to_csv"]
@@ -139,8 +146,6 @@ df, df_validation = feature_slicer.slice_pair(
 
 
 ######STEP 2: Applying Outlier removal ##########################
-
-df_outlier_removed = {}
 
 columns_outlier = [
     "age",
@@ -183,11 +188,6 @@ columns_outlier = [
 ]
 columns_outlier = [column for column in columns_outlier if column in df.columns]
 
-for outlier, should_run in zip(Outliers_list, Outliers_run):
-    if not should_run:
-        continue
-    df_outlier_removed[outlier] = getattr(Outlier, outlier)(df, columns_outlier)
-
 #########################################
 
 
@@ -201,12 +201,14 @@ df_train_by_outlier = {}
 df_val_by_outlier = {}
 df_test_by_outlier = {}
 
-for outlier_method, df_out_rem in df_outlier_removed.items():
+for outlier_method, should_run in zip(Outliers_list, Outliers_run):
+    if not should_run:
+        continue
     print(f"[SPLIT] Starting split for: {outlier_method}")
-    print(f"[SPLIT] Total rows: {len(df_out_rem)}, Unique patients: {len(df_out_rem['subject_id'].unique())}")
+    print(f"[SPLIT] Total rows: {len(df)}, Unique patients: {len(df['subject_id'].unique())}")
 
     # Get unique patients
-    patient_ids = df_out_rem["subject_id"].unique()
+    patient_ids = df["subject_id"].unique()
 
     # First split: 70% train, 30% temporary
     train_ids, temp_ids = train_test_split(
@@ -223,9 +225,15 @@ for outlier_method, df_out_rem in df_outlier_removed.items():
     )
 
     # Create the actual DataFrames based on patient IDs
-    train_df = df_out_rem[df_out_rem["subject_id"].isin(train_ids)].copy()
-    val_df = df_out_rem[df_out_rem["subject_id"].isin(val_ids)].copy()
-    test_df = df_out_rem[df_out_rem["subject_id"].isin(test_ids)].copy()
+    train_df = df[df["subject_id"].isin(train_ids)].copy()
+    val_df = df[df["subject_id"].isin(val_ids)].copy()
+    test_df = df[df["subject_id"].isin(test_ids)].copy()
+
+    # Learn outlier thresholds on training patients only and reuse them.
+    bounds = Outlier.fit_bounds(train_df, columns_outlier, outlier_method)
+    train_df = Outlier.apply_bounds(train_df, bounds, outlier_method)
+    val_df = Outlier.apply_bounds(val_df, bounds, outlier_method)
+    test_df = Outlier.apply_bounds(test_df, bounds, outlier_method)
 
     print(f"[SPLIT] Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
 
@@ -323,10 +331,16 @@ for method_key in df_train_imputed.keys():
             continue
         print(f"[SMOOTH] Running smoother: {smoother}")
         
-        # Apply smoother to each split
-        df_train_smoothed_result = getattr(Smoother, smoother)(df=df_train)
-        df_val_smoothed_result = getattr(Smoother, smoother)(df=df_val)
-        df_test_smoothed_result = getattr(Smoother, smoother)(df=df_test)
+        # Learn smoothing cutoffs on training data only and reuse them.
+        smooth_columns = [c for c in df_train.select_dtypes(include="number").columns
+                          if c not in ["mortality_flag", "subject_id"]]
+        if smoother == "winsorization":
+            bounds = Smoother.fit_winsor_bounds(df_train, limits=(0.02, 0.02), columns=smooth_columns)
+            df_train_smoothed_result = Smoother.apply_winsor_bounds(df_train, bounds)
+            df_val_smoothed_result = Smoother.apply_winsor_bounds(df_val, bounds)
+            df_test_smoothed_result = Smoother.apply_winsor_bounds(df_test, bounds)
+        else:
+            raise ValueError(f"Unsupported smoother: {smoother}")
         
         method_full_key = f"{method_key}_{smoother}"
         df_train_smoothed[method_full_key] = df_train_smoothed_result
@@ -476,6 +490,30 @@ for method, train_df in df_train.items():
                 X_test, y_test,
                 X_external, y_external
             )
+        elif model_name.lower() == "quantum_ml":
+            results = models_instance.quantum_ml(
+                X_train, y_train,
+                X_val, y_val,
+                X_test, y_test,
+                X_external, y_external
+            )
+        elif model_name.lower() == "randomforest":
+            results = models_instance.random_forest(
+                X_train, y_train, X_val, y_val, X_test, y_test,
+                X_external, y_external
+            )
+        elif model_name.lower() == "decisiontree":
+            results = models_instance.decision_tree(
+                X_train, y_train, X_val, y_val, X_test, y_test,
+                X_external, y_external
+            )
+        elif model_name.lower() == "lightgbm":
+            results = models_instance.lightgbm(
+                X_train, y_train, X_val, y_val, X_test, y_test,
+                X_external, y_external
+            )
+        else:
+            raise ValueError(f"Unsupported model configured: {model_name}")
 
         print(f"[MODEL] Completed {model_name} for {method}")
 
@@ -531,6 +569,30 @@ for method, df in df_trained_generated.items():
                 X_test, y_test,
                 X_external, y_external
             )
+        elif model_name.lower() == "quantum_ml":
+            results = models_instance.quantum_ml(
+                X_train, y_train,
+                X_val, y_val,
+                X_test, y_test,
+                X_external, y_external
+            )
+        elif model_name.lower() == "randomforest":
+            results = models_instance.random_forest(
+                X_train, y_train, X_val, y_val, X_test, y_test,
+                X_external, y_external
+            )
+        elif model_name.lower() == "decisiontree":
+            results = models_instance.decision_tree(
+                X_train, y_train, X_val, y_val, X_test, y_test,
+                X_external, y_external
+            )
+        elif model_name.lower() == "lightgbm":
+            results = models_instance.lightgbm(
+                X_train, y_train, X_val, y_val, X_test, y_test,
+                X_external, y_external
+            )
+        else:
+            raise ValueError(f"Unsupported model configured: {model_name}")
 
         print(f"[MODEL] Completed {model_name} for {method}")
 

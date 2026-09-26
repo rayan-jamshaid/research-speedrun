@@ -1,0 +1,21 @@
+{
+  "random_state": 42,
+  "split": {
+    "train": 0.70,
+    "validation": 0.15,
+    "test": 0.15
+  },
+  "preprocessing": {
+    "winsorization_limits": [0.02, 0.02]
+  },
+  "classification_models": [
+    "Catboost",
+    "XGBoost",
+    "randomforest",
+    "decisiontree",
+    "lightgbm",
+    "quantum_ml"
+  ],
+  "tabfm_datasets": ["mimic_iii", "mimic_iv"],
+  "output_dir": "results"
+}

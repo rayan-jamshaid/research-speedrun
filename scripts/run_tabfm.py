@@ -52,6 +52,65 @@ def evaluate(model, X, y):
         "images": {} 
     }
 
+def run_dataset(data_path, dataset_name, device):
+    """Run the complete TabFM workflow for one processed MIMIC dataset."""
+    try:
+        from tabfm import TabFMClassifier
+        from tabfm import tabfm_v1_0_0_pytorch as tabfm_v1_0_0
+        model = tabfm_v1_0_0.load(device=device)
+        clf = TabFMClassifier(model=model)
+    except ImportError as e:
+        print(f"TabFM import failed. Make sure its dependencies are installed: {e}")
+        print("To install: pip install ./tabfm[pytorch] safetensors huggingface_hub")
+        return
+
+    print(f"\n[TABFM] Processing {dataset_name}: {data_path}")
+    df = pd.read_csv(data_path)
+    target_column = "mortality_flag"
+    if target_column not in df.columns:
+        print(f"[SKIP] Target column '{target_column}' not found in {data_path}.")
+        return
+
+    X = df.drop(columns=[target_column])
+    y = df[target_column]
+    X_temp, X_test, y_temp, y_test = train_test_split(
+        X, y, test_size=0.15, random_state=42, stratify=y
+    )
+    X_train, X_dev, y_train, y_dev = train_test_split(
+        X_temp, y_temp, test_size=(0.15 / 0.85), random_state=42, stratify=y_temp
+    )
+
+    df_train = X_train.copy(); df_train[target_column] = y_train
+    df_dev = X_dev.copy(); df_dev[target_column] = y_dev
+    df_test = X_test.copy(); df_test[target_column] = y_test
+
+    print(f"[SPLIT] {dataset_name}: train={len(df_train)}, dev={len(df_dev)}, test={len(df_test)}")
+    print(f"[IMPUTE] {dataset_name}: IterativeImputer")
+    imputer = Imputation(method="iterative", random_state=42)
+    imputer.fit(df_train)
+    df_train_imp = imputer.transform(df_train)
+    df_dev_imp = imputer.transform(df_dev)
+    df_test_imp = imputer.transform(df_test)
+
+    X_train_imp = df_train_imp.drop(columns=[target_column])
+    y_train_imp = df_train_imp[target_column].values
+    X_dev_imp = df_dev_imp.drop(columns=[target_column])
+    y_dev_imp = df_dev_imp[target_column].values
+    X_test_imp = df_test_imp.drop(columns=[target_column])
+    y_test_imp = df_test_imp[target_column].values
+
+    print(f"[TABFM] Fitting {dataset_name}...")
+    clf.fit(X_train_imp, y_train_imp)
+    results = {
+        "model": clf,
+        "validation": evaluate(clf, X_dev_imp, y_dev_imp),
+        "test": evaluate(clf, X_test_imp, y_test_imp),
+    }
+    results_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "results"))
+    out_path = Writer(output_dir=results_dir).write_to_html(results, f"TabFM_{dataset_name}")
+    print(f"[DONE] {dataset_name}: results written to {out_path}")
+
+
 def main():
     # Detect GPU availability
     try:
@@ -66,86 +125,13 @@ def main():
         device = "cpu"
         print("[DEVICE] PyTorch not available for device detection — defaulting to CPU.")
 
-    try:
-        from tabfm import TabFMClassifier
-        from tabfm import tabfm_v1_0_0_pytorch as tabfm_v1_0_0
-        model = tabfm_v1_0_0.load(device=device)
-        clf = TabFMClassifier(model=model)
-        has_tabfm = True
-        print(f"[TABFM] Loaded TabFM model on device: {device}")
-    except ImportError as e:
-        print(f"TabFM import failed. Make sure you install its dependencies: {e}")
-        print("To install: pip install ./tabfm[pytorch] safetensors huggingface_hub")
-        has_tabfm = False
-
-    data_path = os.path.join(os.path.dirname(__file__), "..", "data", "processed", "mimic_iii_processed.csv")
-    
-    print(f"Loading data from {data_path}...")
-    df = pd.read_csv(data_path)
-    
-    # Assuming 'mortality_flag' is the target based on typical MIMIC datasets
-    target_column = "mortality_flag"
-    
-    if target_column not in df.columns:
-        print(f"Error: Target column '{target_column}' not found.")
-        return
-
-    # Split into train, dev, test
-    X = df.drop(columns=[target_column])
-    y = df[target_column]
-    
-    X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    X_train, X_dev, y_train, y_dev = train_test_split(X_temp, y_temp, test_size=0.25, random_state=42) # 0.25 x 0.8 = 0.2
-    
-    # Recreate dfs for imputation
-    df_train = X_train.copy()
-    df_train[target_column] = y_train
-    
-    df_dev = X_dev.copy()
-    df_dev[target_column] = y_dev
-    
-    df_test = X_test.copy()
-    df_test[target_column] = y_test
-    
-    print("Imputing missing values using IterativeImputer...")
-    imputer = Imputation(method="iterative", random_state=42)
-    imputer.fit(df_train)
-    
-    df_train_imp = imputer.transform(df_train)
-    df_dev_imp = imputer.transform(df_dev)
-    df_test_imp = imputer.transform(df_test)
-    
-    X_train_imp = df_train_imp.drop(columns=[target_column])
-    y_train_imp = df_train_imp[target_column].values
-    
-    X_dev_imp = df_dev_imp.drop(columns=[target_column])
-    y_dev_imp = df_dev_imp[target_column].values
-    
-    X_test_imp = df_test_imp.drop(columns=[target_column])
-    y_test_imp = df_test_imp[target_column].values
-    
-    if not has_tabfm:
-        print("Skipping TabFM modeling phase because it is not installed.")
-        return
-        
-    print("Fitting TabFMClassifier...")
-    clf.fit(X_train_imp, y_train_imp)
-    
-    print("Evaluating with TabFMClassifier...")
-    validation_results = evaluate(clf, X_dev_imp, y_dev_imp)
-    test_results = evaluate(clf, X_test_imp, y_test_imp)
-    
-    results = {
-        "model": clf,
-        "validation": validation_results,
-        "test": test_results
-    }
-    
-    print("Writing results using HTMLWriter...")
-    results_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "results"))
-    writer = Writer(output_dir=results_dir)
-    out_path = writer.write_to_html(results, "TabFM_mimic_iii")
-    print(f"Done! Results written to: {out_path}")
+    data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "processed"))
+    for dataset_name in ("mimic_iii", "mimic_iv"):
+        data_path = os.path.join(data_dir, f"{dataset_name}_processed.csv")
+        if not os.path.exists(data_path):
+            print(f"[SKIP] Missing dataset: {data_path}")
+            continue
+        run_dataset(data_path, dataset_name, device)
 
 if __name__ == "__main__":
     main()
