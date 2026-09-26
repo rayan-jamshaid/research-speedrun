@@ -45,3 +45,7 @@ raw_data/*
 
 
 tabfm
+tabfm/*
+
+tabfm_results
+tabfm_results/*
